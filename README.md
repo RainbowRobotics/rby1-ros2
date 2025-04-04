@@ -88,7 +88,7 @@ Various bugs may occur during use, so please proceed with caution.**
 ## manipulation
 ### bring up
 ```shell
-ros2 launch rby1_bringup rby1_bringup.launch robot_ip:=<Rpc_ip_address:port_number>
+ros2 launch rby1_bringup bringup.launch robot_ip:=<Rpc_ip_address:port_number>
 
 # We recommend verifying it in simulation before running on the real robot.
 ```
