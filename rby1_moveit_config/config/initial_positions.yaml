@@ -1,0 +1,34 @@
+# Default initial positions for rby1's ros2_control fake system
+
+initial_positions:
+  world_to_base: 0
+  right_wheel: 0
+  left_wheel: 0
+  torso_0: 0
+  torso_1: 0
+  torso_2: 0
+  torso_3: 0
+  torso_4: 0
+  torso_5: 0
+  right_arm_0: 0
+  right_arm_1: 0
+  right_arm_2: 0
+  right_arm_3: 0
+  right_arm_4: 0
+  right_arm_5: 0
+  right_arm_6: 0
+  left_arm_0: 0
+  left_arm_1: 0
+  left_arm_2: 0
+  left_arm_3: 0
+  left_arm_4: 0
+  left_arm_5: 0
+  left_arm_6: 0
+  head_0: 0
+  head_1: 0
+
+
+  # gripper_finger_l1: 0
+  # gripper_finger_l2: 0
+  # gripper_finger_r1: 0
+  # gripper_finger_r2: 0

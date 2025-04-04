@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<library path="rby1_hardware">
+  <class name="rby1_hardware/RBY1HardwareInterface"
+         type="rby1_hardware::RBY1HardwareInterface"
+         base_class_type="hardware_interface::SystemInterface">
+    <description>RBY1 Hardware Interface</description>
+  </class>
+</library>

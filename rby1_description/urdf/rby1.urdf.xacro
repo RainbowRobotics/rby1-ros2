@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="rby1">
+
+    <xacro:arg name="initial_positions_file" default="initial_positions.yaml" />
+    <xacro:arg name="robot_ip" default="" />
+
+    <!-- Import rby1 urdf file -->
+    <xacro:include filename="$(find rby1_description)/urdf/rby1.urdf" />
+
+    <!-- Import control_xacro -->
+    <xacro:include filename="$(find rby1_description)/urdf/rby1.ros2_control.xacro" />
+
+    <xacro:rby1_ros2_control 
+        name="RBY1HardwareInterface" 
+        initial_positions_file="$(arg initial_positions_file)"
+        robot_ip="$(arg robot_ip)" 
+    />
+
+</robot>
