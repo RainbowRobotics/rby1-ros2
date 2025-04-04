@@ -78,7 +78,17 @@ hardware_interface::CallbackReturn RBY1HardwareInterface::on_activate(const rclc
   for (size_t i = 0; i < joint_positions_.size(); ++i) {
     joint_positions_[i] = state.position(i);
   }
-  joint_commands_ = joint_positions_;
+  joint_commands_ = joint_positions_; 
+  
+  robot_->StartStateUpdate(
+    [this](const auto& state) {
+      std::lock_guard<std::mutex> lock(state_mutex_);
+      latest_state_ = state;
+      state_received_ = true;
+    },
+    100.0
+  );
+  
   return hardware_interface::CallbackReturn::SUCCESS;
 }
 
@@ -110,11 +120,18 @@ std::vector<hardware_interface::CommandInterface> RBY1HardwareInterface::export_
 
 hardware_interface::return_type RBY1HardwareInterface::read(const rclcpp::Time &, const rclcpp::Duration &)
 {
-  auto state = robot_->GetState();
-  if (state.position.size() != joint_positions_.size()) return hardware_interface::return_type::ERROR;
+  rb::RobotState<rb::y1_model::A> state_copy;
+  {
+    std::lock_guard<std::mutex> lock(state_mutex_);
+    if (!state_received_) return hardware_interface::return_type::ERROR;
+    state_copy = latest_state_;
+  }
+
+  if (state_copy.position.size() != joint_positions_.size())
+    return hardware_interface::return_type::ERROR;
 
   for (size_t i = 0; i < joint_positions_.size(); ++i) {
-    joint_positions_[i] = state.position(i);
+    joint_positions_[i] = state_copy.position(i);
   }
 
   sensor_msgs::msg::JointState js_msg;
@@ -183,17 +200,17 @@ hardware_interface::return_type RBY1HardwareInterface::write(const rclcpp::Time&
         .SetBodyCommand(
             rb::BodyComponentBasedCommandBuilder()
                 .SetRightArmCommand(rb::JointPositionCommandBuilder()
-                  .SetCommandHeader(rb::CommandHeaderBuilder().SetControlHoldTime(1))
+                  .SetCommandHeader(rb::CommandHeaderBuilder().SetControlHoldTime(0.3))
                   .SetMinimumTime(0.03).SetPosition(right_arm))
                 .SetLeftArmCommand(rb::JointPositionCommandBuilder()
-                  .SetCommandHeader(rb::CommandHeaderBuilder().SetControlHoldTime(1))
+                  .SetCommandHeader(rb::CommandHeaderBuilder().SetControlHoldTime(0.3))
                   .SetMinimumTime(0.03).SetPosition(left_arm))
                 .SetTorsoCommand(rb::JointPositionCommandBuilder()
-                  .SetCommandHeader(rb::CommandHeaderBuilder().SetControlHoldTime(1))
+                  .SetCommandHeader(rb::CommandHeaderBuilder().SetControlHoldTime(0.3))
                   .SetMinimumTime(0.03).SetPosition(torso))
         )
                 .SetHeadCommand(rb::JointPositionCommandBuilder()
-                  .SetCommandHeader(rb::CommandHeaderBuilder().SetControlHoldTime(1))
+                  .SetCommandHeader(rb::CommandHeaderBuilder().SetControlHoldTime(0.3))
                   .SetMinimumTime(0.03).SetPosition(head))
     )
   );
