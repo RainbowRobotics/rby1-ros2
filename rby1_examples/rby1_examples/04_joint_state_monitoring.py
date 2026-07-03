@@ -20,7 +20,7 @@ from sensor_msgs.msg import JointState
 
 class JointStateMonitoring(Node):
     def __init__(self):
-        super().__init__('joint_state_monitoring')
+        super().__init__('joint_state_monitoring', namespace='rby1')
         self.get_logger().info('Initializing Joint State Monitoring...')
         
         # State caches

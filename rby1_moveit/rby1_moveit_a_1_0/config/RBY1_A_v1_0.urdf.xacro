@@ -7,6 +7,8 @@
     <xacro:arg name="model_name" default="rby1a" />
     <xacro:arg name="model_version" default="1_0" />
 
+    <xacro:arg name="driver_namespace" default="rby1" />
+
     <!-- Import RBY1_A_v1_0 urdf file -->
     <xacro:include filename="$(find rby1_description)/urdf/rby1a/model_v1_0.urdf" />
 
@@ -20,6 +22,7 @@
         use_fake_hardware="$(arg use_fake_hardware)"
         robot_ip="$(arg robot_ip)"
         model="$(arg model)"
+        driver_namespace="$(arg driver_namespace)"
     />
 
 </robot>

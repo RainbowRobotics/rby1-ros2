@@ -49,11 +49,30 @@ RBY1SystemHardware::on_init(const hardware_interface::HardwareInfo &info) {
     collision_threshold_ = 0.01;
   }
 
+  std::string driver_ns = "rby1";
+  auto driver_ns_it = info_.hardware_parameters.find("driver_namespace");
+  if (driver_ns_it != info_.hardware_parameters.end()) {
+    driver_ns = driver_ns_it->second;
+  }
+
+  if (driver_ns.empty() || driver_ns == "/") {
+    driver_ns_prefix_ = "";
+  } else {
+    if (driver_ns.front() != '/') {
+      driver_ns = "/" + driver_ns;
+    }
+    if (driver_ns.back() == '/') {
+      driver_ns.pop_back();
+    }
+    driver_ns_prefix_ = driver_ns;
+  }
+
   RCLCPP_INFO(rclcpp::get_logger("RBY1SystemHardware"),
               "Initializing RBY1SystemHardware on %s (Model: %s, Collision "
-              "Check: %s, Threshold: %.4f m)",
+              "Check: %s, Threshold: %.4f m, Namespace: %s)",
               robot_ip_.c_str(), model_type_.c_str(),
-              collision_check_enable_ ? "ON" : "OFF", collision_threshold_);
+              collision_check_enable_ ? "ON" : "OFF", collision_threshold_,
+              driver_ns_prefix_.c_str());
 
   // Resize internal buffers for joints
   hw_commands_.resize(info_.joints.size(), 0.0);
@@ -102,7 +121,7 @@ RBY1SystemHardware::on_init(const hardware_interface::HardwareInfo &info) {
   node_ = std::make_shared<rclcpp::Node>("rby1_hardware_node");
 
   joint_state_sub_ = node_->create_subscription<sensor_msgs::msg::JointState>(
-      "/joint_states", 10,
+      driver_ns_prefix_ + "/joint_states", 10,
       std::bind(&RBY1SystemHardware::joint_state_callback, this,
                 std::placeholders::_1));
   cmd_vel_sub_ = node_->create_subscription<geometry_msgs::msg::Twist>(
@@ -111,11 +130,11 @@ RBY1SystemHardware::on_init(const hardware_interface::HardwareInfo &info) {
                 std::placeholders::_1));
 
   hardware_control_client_ =
-      node_->create_client<rby1_msgs::srv::StateOnOff>("/hardware_control");
+      node_->create_client<rby1_msgs::srv::StateOnOff>(driver_ns_prefix_ + "/hardware_control");
   power_control_client_ =
-      node_->create_client<rby1_msgs::srv::StateOnOff>("/robot_power");
+      node_->create_client<rby1_msgs::srv::StateOnOff>(driver_ns_prefix_ + "/robot_power");
   servo_control_client_ =
-      node_->create_client<rby1_msgs::srv::StateOnOff>("/robot_servo");
+      node_->create_client<rby1_msgs::srv::StateOnOff>(driver_ns_prefix_ + "/robot_servo");
 
   auto vel_limit_it = info_.hardware_parameters.find("velocity_limit");
   if (vel_limit_it != info_.hardware_parameters.end()) {
@@ -399,16 +418,6 @@ hardware_interface::CallbackReturn RBY1SystemHardware::on_deactivate(
     robot_->close_stream();
     robot_->disable_control_manager();
     robot_->cancel_control();
-
-    // Disable Servos
-    std::string servo_dev = "all";
-    auto servo_dev_it = info_.hardware_parameters.find("servo_on");
-    if (servo_dev_it != info_.hardware_parameters.end()) {
-      servo_dev = servo_dev_it->second;
-    }
-    robot_->servo_on(
-        servo_dev); // (ServoOff call is not exposed directly in wrapper except
-                    // via disconnecting or servo off)
 
     robot_->disconnect();
     robot_.reset();

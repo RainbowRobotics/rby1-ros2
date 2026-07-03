@@ -328,6 +328,7 @@ private:
   std::unique_ptr<RBY1RobotWrapper> robot_;
   std::string robot_ip_;
   std::string model_type_;
+  std::string driver_ns_prefix_;
   double collision_threshold_{0.01};
   bool collision_check_enable_{false};
   

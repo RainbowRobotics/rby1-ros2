@@ -37,7 +37,7 @@ from rby1_msgs.srv import StateOnOff
 
 class PowerControlExample(Node):
     def __init__(self):
-        super().__init__('power_control_example')
+        super().__init__('power_control_example', namespace='rby1')
         self.power_client = self.create_client(StateOnOff, 'robot_power')
         self.servo_client = self.create_client(StateOnOff, 'robot_servo')
         self.state_sub = self.create_subscription(RobotState, 'robot_state', self.state_callback, 10)

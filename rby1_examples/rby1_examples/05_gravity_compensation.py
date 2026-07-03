@@ -32,7 +32,7 @@ from rby1_msgs.srv import StateOnOff, GravityCompensation
 
 class GravityCompensationExample(Node):
     def __init__(self):
-        super().__init__('gravity_compensation_example')
+        super().__init__('gravity_compensation_example', namespace='rby1')
         self.power_client = self.create_client(StateOnOff, 'robot_power')
         self.servo_client = self.create_client(StateOnOff, 'robot_servo')
         self.gravity_client = self.create_client(GravityCompensation, 'gravity_compensation')

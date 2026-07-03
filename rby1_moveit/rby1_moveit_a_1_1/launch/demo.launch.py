@@ -33,6 +33,12 @@ def generate_launch_description():
         description="Version string of the model (e.g., 1.0, 1_1, 1_2, 1_3)."
     )
 
+    driver_namespace_arg = DeclareLaunchArgument(
+        "driver_namespace",
+        default_value="rby1",
+        description="Top-level namespace of the robot driver node, topics, and services."
+    )
+
     # Build MoveIt configuration with mappings
     moveit_config = (
         MoveItConfigsBuilder("RBY1_A_v1_1", package_name="rby1_moveit_a_1_1")
@@ -44,6 +50,7 @@ def generate_launch_description():
                 "model": LaunchConfiguration("model"),
                 "model_name": LaunchConfiguration("model_name"),
                 "model_version": LaunchConfiguration("model_version"),
+                "driver_namespace": LaunchConfiguration("driver_namespace"),
             }
         )
         .to_moveit_configs()
@@ -64,6 +71,7 @@ def generate_launch_description():
         model_arg,
         model_name_arg,
         model_version_arg,
+        driver_namespace_arg,
         #rqt_controller_manager,
         *demo_launch.entities
     ])

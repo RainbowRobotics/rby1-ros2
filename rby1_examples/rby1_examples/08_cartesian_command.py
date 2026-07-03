@@ -41,7 +41,7 @@ from geometry_msgs.msg import Transform, Vector3, Quaternion
 
 class CartesianCommandExample(Node):
     def __init__(self):
-        super().__init__('cartesian_command_example')
+        super().__init__('cartesian_command_example', namespace='rby1')
         self._action_client = ActionClient(self, Rby1CartesianCommand, 'robot_cartesian')
         self._zero_pose_client = ActionClient(self, Rby1JointCommand, 'robot_joint')
         self.power_client = self.create_client(StateOnOff, 'robot_power')

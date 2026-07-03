@@ -35,7 +35,7 @@ from rby1_msgs.srv import StateOnOff
 
 class JointCommandExample(Node):
     def __init__(self):
-        super().__init__('joint_command_example')
+        super().__init__('joint_command_example', namespace='rby1')
         self._action_client = ActionClient(self, Rby1JointCommand, 'robot_joint')
         self.power_client = self.create_client(StateOnOff, 'robot_power')
         self.servo_client = self.create_client(StateOnOff, 'robot_servo')

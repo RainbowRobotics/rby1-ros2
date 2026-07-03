@@ -41,7 +41,7 @@ from std_srvs.srv import Trigger
 
 class CancelControlExample(Node):
     def __init__(self):
-        super().__init__('cancel_control_example')
+        super().__init__('cancel_control_example', namespace='rby1')
         self._action_client = ActionClient(self, Rby1JointCommand, 'robot_joint')
         self.power_client = self.create_client(StateOnOff, 'robot_power')
         self.servo_client = self.create_client(StateOnOff, 'robot_servo')

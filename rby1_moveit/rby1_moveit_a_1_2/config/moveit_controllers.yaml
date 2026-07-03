@@ -103,3 +103,6 @@ moveit_simple_controller_manager:
     joints:
       - gripper_finger_l1_joint
     action_ns: gripper_cmd
+
+trajectory_execution:
+  allowed_start_tolerance: 0.03

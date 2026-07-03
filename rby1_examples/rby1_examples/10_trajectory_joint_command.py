@@ -35,7 +35,7 @@ from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 
 class TrajectoryJointCommand(Node):
     def __init__(self):
-        super().__init__('trajectory_joint_command')
+        super().__init__('trajectory_joint_command', namespace='rby1')
         self.stream_hz =  15.0
         self._stream_client = ActionClient(self, FollowJointTrajectory, 'follow_joint_trajectory')
         self._zero_pose_client = ActionClient(self, Rby1JointCommand, 'robot_joint')

@@ -1291,8 +1291,9 @@ void RBY1_ROS2_DRIVER<ModelType>::read_joint_state() {
       }
     }
   } catch (const std::exception &e) {
-    RCLCPP_ERROR_THROTTLE(this->get_logger(), *this->get_clock(), 5000,
-                          "Error in read_joint_state loop: %s", e.what());
+    RCLCPP_ERROR(this->get_logger(), "Error in read_joint_state loop: %s", e.what());
+    RCLCPP_FATAL(this->get_logger(), "Connection to robot lost. Shutting down driver node.");
+    rclcpp::shutdown();
   }
 }
 

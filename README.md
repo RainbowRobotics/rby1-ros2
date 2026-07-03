@@ -43,9 +43,25 @@ The system operates using two primary pipelines to interface with the robot:
 > [!CAUTION]
 > if you'll not use MoveIt, pleasse delete moveit package(rby1_moveit folder) in workspace.
 
+#### Option A(install package)
 - Please proceed up to  `~ Optional: add the previous command to your .bashrc`
 
 <https://moveit.picknik.ai/humble/doc/tutorials/getting_started/getting_started.html>
+
+
+#### Option B(binary install)
+
+- it can use robot's UPC(jetson).
+
+```bash
+sudo apt update
+sudo apt install ros-humble-moveit
+sudo apt install ros-humble-moveit-visual-tools ros-humble-interactive-markers
+
+# install check
+source /opt/ros/humble/setup.bash
+ros2 pkg list | grep moveit
+```
 
 - Install additional tool
 
@@ -74,7 +90,7 @@ source ~/.bashrc
 ```bash
 mkdir -p rby1_ros2_ws/src
 cd rby1_ros2_ws/src
-git clone https://github.com/RainbowRobotics/rby1_ros2.git
+git clone https://github.com/RainbowRobotics/rby1-ros2.git
 cd ..
 colcon build --symlink-install
 source install/setup.bash
@@ -248,6 +264,7 @@ Each `rby1_moveit_*` package contains the complete MoveIt 2 configuration (SRDF,
 > **Real hardware mode** requires `rby1_driver` to be running first.  
 > `RBY1SystemHardware` claims hardware control from the driver via the `/hardware_control` service on activation.
 > Please check robot ip & model in `rby1_driver/config/driver_parameters.yaml`
+> After check, please change ip in demo.launch.py
 >
 > [!WARNING]
 > **Version mismatch risk**: The `rby1_hardware` plugin cannot verify the connected robot's version at runtime.  
