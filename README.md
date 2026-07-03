@@ -74,7 +74,7 @@ source ~/.bashrc
 ```bash
 mkdir -p rby1_ros2_ws/src
 cd rby1_ros2_ws/src
-git clone https://github.com/RainbowRobotics/rby1_ros2.git
+git clone https://github.com/RainbowRobotics/rby1-ros2.git
 cd ..
 colcon build --symlink-install
 source install/setup.bash
