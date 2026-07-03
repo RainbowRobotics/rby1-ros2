@@ -43,9 +43,25 @@ The system operates using two primary pipelines to interface with the robot:
 > [!CAUTION]
 > if you'll not use MoveIt, pleasse delete moveit package(rby1_moveit folder) in workspace.
 
+#### Option A(install package)
 - Please proceed up to  `~ Optional: add the previous command to your .bashrc`
 
 <https://moveit.picknik.ai/humble/doc/tutorials/getting_started/getting_started.html>
+
+
+#### Option B(binary install)
+
+- it can use robot's UPC(jetson).
+
+```bash
+sudo apt update
+sudo apt install ros-humble-moveit
+sudo apt install ros-humble-moveit-visual-tools ros-humble-interactive-markers
+
+# install check
+source /opt/ros/humble/setup.bash
+ros2 pkg list | grep moveit
+```
 
 - Install additional tool
 

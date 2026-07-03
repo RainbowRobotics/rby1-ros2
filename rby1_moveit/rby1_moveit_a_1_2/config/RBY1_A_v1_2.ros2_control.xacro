@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
-    <xacro:macro name="RBY1_A_v1_2_ros2_control" params="name initial_positions_file use_fake_hardware:=true robot_ip:=127.0.0.1:50051 model:=a">
+    <xacro:macro name="RBY1_A_v1_2_ros2_control" params="name initial_positions_file use_fake_hardware:=true robot_ip:=127.0.0.1:50051 model:=a driver_namespace:=rby1">
         <xacro:property name="initial_positions" value="${xacro.load_yaml(initial_positions_file)['initial_positions']}"/>
 	      <xacro:arg name="robot_ip" default="127.0.0.1:50051" />
         <xacro:arg name="model" default="a" />
@@ -13,6 +13,7 @@
                     <plugin>rby1_hardware/RBY1SystemHardware</plugin>
                     <param name="robot_ip">${robot_ip}</param>
                     <param name="model">${model}</param>
+                    <param name="driver_namespace">${driver_namespace}</param>
                 </xacro:unless>
             </hardware>
             <joint name="right_arm_0">

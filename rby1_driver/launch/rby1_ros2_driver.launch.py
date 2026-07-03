@@ -15,7 +15,7 @@ def generate_launch_description():
     # Declare the namespace launch argument
     declare_namespace_cmd = DeclareLaunchArgument(
         'namespace',
-        default_value='',
+        default_value='rby1',
         description='Top-level namespace for the robot node, topics, and services'
     )
     

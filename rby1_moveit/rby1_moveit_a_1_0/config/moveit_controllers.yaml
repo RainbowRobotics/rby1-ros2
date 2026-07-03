@@ -103,3 +103,6 @@ moveit_simple_controller_manager:
       - right_arm_4
       - right_arm_5
       - right_arm_6
+
+trajectory_execution:
+  allowed_start_tolerance: 0.03
