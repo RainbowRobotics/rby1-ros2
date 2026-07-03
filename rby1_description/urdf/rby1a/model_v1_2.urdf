@@ -1067,6 +1067,7 @@
         <origin rpy="0.0 0.0 3.1415926535" xyz="-0.003 0.0 -0.075" />
         <axis xyz="1 0 0" />
         <limit effort="1000" velocity="0.05" lower="0" upper="0.05" />
+        <mimic joint="gripper_finger_r1_joint" multiplier="1.0" offset="0.0"/>
     </joint>
 
     <!-- <joint name="tool_left" type="fixed">
