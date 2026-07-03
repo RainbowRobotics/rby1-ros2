@@ -264,6 +264,7 @@ Each `rby1_moveit_*` package contains the complete MoveIt 2 configuration (SRDF,
 > **Real hardware mode** requires `rby1_driver` to be running first.  
 > `RBY1SystemHardware` claims hardware control from the driver via the `/hardware_control` service on activation.
 > Please check robot ip & model in `rby1_driver/config/driver_parameters.yaml`
+> After check, please change ip in demo.launch.py
 >
 > [!WARNING]
 > **Version mismatch risk**: The `rby1_hardware` plugin cannot verify the connected robot's version at runtime.  
