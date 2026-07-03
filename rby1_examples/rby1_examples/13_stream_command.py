@@ -21,7 +21,7 @@ from geometry_msgs.msg import Twist
 
 class StreamCommand(Node):
     def __init__(self):
-        super().__init__('stream_command')
+        super().__init__('stream_command', namespace='rby1')
         self.stream_hz = 30.0
         
         # ROS 2 publishers, clients and action clients

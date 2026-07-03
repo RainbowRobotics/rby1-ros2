@@ -24,7 +24,7 @@ from rby1_msgs.srv import StateOnOff, ControlManagerCommand
 
 class ToolFlangeMonitoring(Node):
     def __init__(self):
-        super().__init__('tool_flange_monitoring')
+        super().__init__('tool_flange_monitoring', namespace='rby1')
         self.get_logger().info('Initializing Tool Flange Power Control & Monitoring...')
         
         # State caches

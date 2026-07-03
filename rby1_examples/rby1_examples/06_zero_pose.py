@@ -34,7 +34,7 @@ from rby1_msgs.srv import StateOnOff
 
 class ZeroPoseExample(Node):
     def __init__(self):
-        super().__init__('zero_pose_example')
+        super().__init__('zero_pose_example', namespace='rby1')
         self._action_client = ActionClient(self, Rby1JointCommand, 'robot_joint')
         self.power_client = self.create_client(StateOnOff, 'robot_power')
         self.servo_client = self.create_client(StateOnOff, 'robot_servo')

@@ -23,7 +23,7 @@ import sys
 
 class RobotStatusMonitor(Node):
     def __init__(self):
-        super().__init__('robot_status_monitor')
+        super().__init__('robot_status_monitor', namespace='rby1')
         
         # State caches
         self.robot_state_msg = None

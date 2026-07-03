@@ -24,7 +24,7 @@ from sensor_msgs.msg import JointState
 
 class CollisionSafetyExample(Node):
     def __init__(self):
-        super().__init__('collision_safety_example')
+        super().__init__('collision_safety_example', namespace='rby1')
         self._action_client = ActionClient(self, Rby1JointCommand, 'robot_joint')
         self.power_client = self.create_client(StateOnOff, 'robot_power')
         self.servo_client = self.create_client(StateOnOff, 'robot_servo')

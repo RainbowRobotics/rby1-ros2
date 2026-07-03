@@ -41,7 +41,7 @@ from geometry_msgs.msg import Transform
 
 class MultiControlsExample(Node):
     def __init__(self):
-        super().__init__('multi_controls_example')
+        super().__init__('multi_controls_example', namespace='rby1')
         self.joint_client = ActionClient(self, Rby1JointCommand, 'robot_joint')
         self.cartesian_client = ActionClient(self, Rby1CartesianCommand, 'robot_cartesian')
         

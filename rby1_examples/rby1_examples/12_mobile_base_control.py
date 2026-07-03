@@ -42,7 +42,7 @@ from rby1_msgs.srv import StateOnOff
 
 class MobileBaseControl(Node):
     def __init__(self):
-        super().__init__('mobile_base_control')
+        super().__init__('mobile_base_control', namespace='rby1')
         self.cmd_vel_pub = self.create_publisher(Twist, 'cmd_vel', 10)
         self.power_client = self.create_client(StateOnOff, 'robot_power')
         self.servo_client = self.create_client(StateOnOff, 'robot_servo')
