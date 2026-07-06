@@ -55,7 +55,7 @@ ros2 run rby1_examples <example_name>
 > You will need to re-open the stream (`/stream_control state: true`) before sending further commands.  
 > If you only want to pause or cancel a specific motion while keeping the stream alive, use the action cancel instead (see Example 13).
 >
-> If an issue arises, please check the [Troubleshooting & Known Issues](#troubleshooting) section to see if there is any relevant information.
+> If an issue arises, please check the `Troubleshooting & Known Issues` section to see if there is any relevant information.
 
 > [!NOTE]
 > **Simulator Limitation**: Battery voltage, FT sensor, and IMU data read as `0.0` in simulation (no physical hardware).

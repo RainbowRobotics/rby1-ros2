@@ -3,6 +3,10 @@
 > [!CAUTION]
 > ## The current driver is in beta. For safe use, please test the features in a simulation first.
 
+Please click the link below for more details.
+
+[RBY1 ROS 2 Driver Documentation](https://rainbowrobotics.github.io/rby1-dev/ros2/ros2_driver.html)
+
 ## Overview
 
 `rby1_ros2` is a unified ROS 2 driver package for controlling the Rainbow Robotics RBY1 robot.  
@@ -43,13 +47,7 @@ The system operates using two primary pipelines to interface with the robot:
 > [!CAUTION]
 > if you'll not use MoveIt, pleasse delete moveit package(rby1_moveit folder) in workspace.
 
-#### Option A(install package)
-- Please proceed up to  `~ Optional: add the previous command to your .bashrc`
-
-<https://moveit.picknik.ai/humble/doc/tutorials/getting_started/getting_started.html>
-
-
-#### Option B(binary install. recommended in robot UPC)
+#### Option A(binary install. recommended in robot UPC)
 
 - it can use robot's UPC(jetson).
 
@@ -62,8 +60,12 @@ sudo apt install ros-humble-moveit-visual-tools ros-humble-interactive-markers
 source /opt/ros/humble/setup.bash
 ros2 pkg list | grep moveit
 ```
+#### Option B(install package)
+- Please proceed up to  `~ Optional: add the previous command to your .bashrc`
 
-- Install additional tool
+<https://moveit.picknik.ai/humble/doc/tutorials/getting_started/getting_started.html>
+
+#### Install additional tool
 
 ```bash
 sudo apt install ros-humble-gripper-controllers
@@ -151,34 +153,40 @@ sudo docker run --rm \
 # In your workspace root
 source install/setup.bash
 
-# Option A: Launch normally
 ros2 launch rby1_driver rby1_ros2_driver.launch.py
 
 ```
 
-### 1-9. Run Examples
+## Launch or Run
 
+### Examples
 Each example can be run in a **separate terminal** while the driver is active:
 ```bash
 source install/setup.bash
 ros2 run rby1_examples <example_name>
+# ex ) ros2 run rby1_examples 01_power_control
 ```
 
-| Example | Command | Description |
-|---------|---------|-------------|
-| `01_power_control` | `ros2 run rby1_examples 01_power_control` | Full power lifecycle: Power ON/OFF, Servo ON/OFF |
-| `02_robot_status_monitor` | `ros2 run rby1_examples 02_robot_status_monitor` | Continuously prints state monitor (Motor state, brakes, battery, etc) |
-| `03_tool_flange_monitoring` | `ros2 run rby1_examples 03_tool_flange_monitoring` | Continuously prints tool flange data |
-| `04_joint_state_monitoring` | `ros2 run rby1_examples 04_joint_state_monitoring` | Prints per-component joint positions in real time |
-| `05_gravity_compensation` | `ros2 run rby1_examples 05_gravity_compensation` | Enables/Disable gravity compensation mode |
-| `06_zero_pose` | `ros2 run rby1_examples 06_zero_pose` | Moves all joints to 0 rad simultaneously |
-| `07_joint_command` | `ros2 run rby1_examples 07_joint_command` | Sends Ready Pose with joint_position(right), joint_impedance(left) |
-| `08_cartesian_command` | `ros2 run rby1_examples 08_cartesian_command` | Sends Ready Pose and moves the arms to a target Cartesian pose with cartesian_position(right), cartesian_impedance(left)|
-| `09_multi_controls` | `ros2 run rby1_examples 09_multi_controls` | Simultaneous joint + Cartesian control per body part |
-| `10_trajectory_joint_command` | `ros2 run rby1_examples 10_trajectory_joint_command` | Streams a pre-computed trajectory via standard FollowJointTrajectory action |
-| `11_cancel_control` | `ros2 run rby1_examples 11_cancel_control` | Demonstrates action cancel and `cancel_control` service |
-| `12_mobile_base_control` | `ros2 run rby1_examples 12_mobile_base_control` | Drives the mobile base via `cmd_vel`|
-| `13_stream_command` | `ros2 run rby1_examples 13_stream_command` | Alternates Zero/Ready poses using regular joint commands over persistent stream with varying wait intervals |
-| `14_collision_safety_control` | `ros2 run rby1_examples 14_collision_safety_control` | use collision value in robot.state, Demonstrates that when collision happens, robot automatically moves retreat to initial safe pose.  |
+### Visualization & Robot Description
+You can use the robot's basic TF structure and state publisher through the commands below. When implementing features related to rby1, please use the model files from the corresponding package.
 
----
+```bash
+source install/setup.bash
+ros2 launch rby1_description rby1_state_publisher.launch.py model:=a version:=1_1
+```
+
+### MoveIt 2
+
+```bash
+# open another terminal
+source install/setup.bash
+
+# Real hardware (default: use_fake_hardware:=false)
+ros2 launch rby1_moveit_m_1_2 demo.launch.py
+
+# With a custom robot IP
+ros2 launch rby1_moveit_m_1_2 demo.launch.py robot_ip:=192.168.30.1:50051
+
+# Fake hardware / simulation (no real robot required)
+ros2 launch rby1_moveit_m_1_2 demo.launch.py use_fake_hardware:=true
+```
