@@ -22,16 +22,6 @@ def generate_launch_description():
         default_value="m",
         description="Robot model type (a or m)."
     )
-    model_name_arg = DeclareLaunchArgument(
-        "model_name",
-        default_value="rby1m",
-        description="Folder name of the robot description model (rby1a or rby1m)."
-    )
-    model_version_arg = DeclareLaunchArgument(
-        "model_version",
-        default_value="1_1",
-        description="Version string of the model (e.g., 1.0, 1_1, 1_2, 1_3)."
-    )
 
     driver_namespace_arg = DeclareLaunchArgument(
         "driver_namespace",
@@ -48,8 +38,6 @@ def generate_launch_description():
                 "use_fake_hardware": LaunchConfiguration("use_fake_hardware"),
                 "robot_ip": LaunchConfiguration("robot_ip"),
                 "model": LaunchConfiguration("model"),
-                "model_name": LaunchConfiguration("model_name"),
-                "model_version": LaunchConfiguration("model_version"),
                 "driver_namespace": LaunchConfiguration("driver_namespace"),
             }
         )
@@ -69,8 +57,6 @@ def generate_launch_description():
         use_fake_hardware_arg,
         robot_ip_arg,
         model_arg,
-        model_name_arg,
-        model_version_arg,
         driver_namespace_arg,
         #rqt_controller_manager,
         *demo_launch.entities
