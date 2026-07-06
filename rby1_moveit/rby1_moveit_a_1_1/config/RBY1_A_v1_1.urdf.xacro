@@ -4,8 +4,6 @@
     <xacro:arg name="use_fake_hardware" default="true" />
     <xacro:arg name="robot_ip" default="127.0.0.1:50051" />
     <xacro:arg name="model" default="a" />
-    <xacro:arg name="model_name" default="rby1a" />
-    <xacro:arg name="model_version" default="1_1" />
 
     <xacro:arg name="driver_namespace" default="rby1" />
 
@@ -14,7 +12,6 @@
 
     <!-- Import control_xacro -->
     <xacro:include filename="RBY1_A_v1_1.ros2_control.xacro" />
-
 
     <xacro:RBY1_A_v1_1_ros2_control
         name="RBY1_A_v1_1_ros2_control"
