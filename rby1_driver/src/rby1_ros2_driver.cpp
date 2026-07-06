@@ -47,6 +47,28 @@ RBY1_ROS2_DRIVER<ModelType>::RBY1_ROS2_DRIVER() : Node("rby1_ros2_driver") {
                   "Robot Info: Model=%s, Version=%s, Compile-time DOF=%zu",
                   info_.robot_model_name.c_str(),
                   info_.robot_model_version.c_str(), ModelType::kRobotDOF);
+
+      // Model check in driver constructor
+      {
+        std::string exp_model = model;
+        std::string conn_model = info_.robot_model_name;
+        std::transform(exp_model.begin(), exp_model.end(), exp_model.begin(), ::tolower);
+        std::transform(conn_model.begin(), conn_model.end(), conn_model.begin(), ::tolower);
+
+        bool model_match = false;
+        if (exp_model == "a" && (conn_model.find("a") != std::string::npos || conn_model.find("rby1a") != std::string::npos)) {
+          model_match = true;
+        } else if (exp_model == "m" && (conn_model.find("m") != std::string::npos || conn_model.find("rby1m") != std::string::npos)) {
+          model_match = true;
+        }
+
+        if (!model_match) {
+          RCLCPP_ERROR(this->get_logger(),
+                       "\033[1;31m[MODEL MISMATCH] Configured model '%s' does not match connected robot '%s'!\033[0m",
+                       model.c_str(), info_.robot_model_name.c_str());
+          throw std::runtime_error("Robot model mismatch: configured " + model + ", connected " + info_.robot_model_name);
+        }
+      }
       RCLCPP_INFO(this->get_logger(),
                   "Joint counts: torso=%zu, right_arm=%zu, left_arm=%zu, "
                   "head=%zu, mobility=%zu",
@@ -1206,8 +1228,19 @@ void RBY1_ROS2_DRIVER<ModelType>::read_joint_state() {
       robot_state_msg.center_of_mass[2] = state.center_of_mass[2];
 
       robot_state_msg.robot_stream_state = stream_active_;
-
       robot_state_msg.collision = robot_state_.collision;
+
+      double version_val = 0.0;
+      try {
+        if (!info_.robot_model_version.empty()) {
+          std::string version_str = info_.robot_model_version;
+          std::replace(version_str.begin(), version_str.end(), '_', '.');
+          version_val = std::stod(version_str);
+        }
+      } catch (...) {
+        version_val = 0.0;
+      }
+      robot_state_msg.robot_version = version_val;
 
       robot_state_pub_->publish(robot_state_msg);
 
