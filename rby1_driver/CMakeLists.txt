@@ -40,7 +40,10 @@ include_directories(/
 file(GLOB_RECURSE SOURCES src/*.cpp)
 
 link_directories(
-  ${RBY1_SDK_PATH}build/src)
+  ${RBY1_SDK_PATH}/build/src)
+
+set(CMAKE_INSTALL_RPATH "${RBY1_SDK_PATH}/build/src")
+set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 add_executable(rby1_ros2_driver
  ${SOURCES}
