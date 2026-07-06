@@ -245,6 +245,60 @@ hardware_interface::CallbackReturn RBY1SystemHardware::on_activate(
 
   auto robot_info = robot_->get_robot_info();
 
+  // Model verification
+  std::string exp_model = model_type_; // "a" or "m"
+  std::string conn_model = robot_info.robot_model_name;
+  std::transform(exp_model.begin(), exp_model.end(), exp_model.begin(), ::tolower);
+  std::transform(conn_model.begin(), conn_model.end(), conn_model.begin(), ::tolower);
+
+  bool model_match = false;
+  if (exp_model == "a" && (conn_model.find("a") != std::string::npos || conn_model.find("rby1a") != std::string::npos)) {
+    model_match = true;
+  } else if (exp_model == "m" && (conn_model.find("m") != std::string::npos || conn_model.find("rby1m") != std::string::npos)) {
+    model_match = true;
+  }
+
+  // Version verification
+  // Parse expected version from info_.name (e.g. "RBY1_A_v1_0_ros2_control")
+  std::string name = info_.name;
+  std::string exp_ver = "unknown";
+  size_t pos = name.find("_v");
+  if (pos != std::string::npos) {
+    exp_ver = name.substr(pos + 2, 3); // "1_0", "1_1" etc.
+    std::replace(exp_ver.begin(), exp_ver.end(), '_', '.');
+  }
+
+  std::string conn_ver = robot_info.robot_model_version;
+  std::replace(conn_ver.begin(), conn_ver.end(), '_', '.');
+
+  // Strip leading 'v' or 'V' if present
+  if (!exp_ver.empty() && (exp_ver[0] == 'v' || exp_ver[0] == 'V')) {
+    exp_ver = exp_ver.substr(1);
+  }
+  if (!conn_ver.empty() && (conn_ver[0] == 'v' || conn_ver[0] == 'V')) {
+    conn_ver = conn_ver.substr(1);
+  }
+
+  if (!model_match || exp_ver != conn_ver) {
+    RCLCPP_FATAL(rclcpp::get_logger("RBY1SystemHardware"),
+                 "\033[1;31m====================================================================\033[0m");
+    RCLCPP_FATAL(rclcpp::get_logger("RBY1SystemHardware"),
+                 "\033[1;31m[MODEL/VERSION MISMATCH] MoveIt configuration does not match connected robot!\033[0m");
+    RCLCPP_FATAL(rclcpp::get_logger("RBY1SystemHardware"),
+                 "\033[1;31m  - MoveIt Expects: Model %s, Version %s (from node name: %s)\033[0m",
+                 model_type_.c_str(), exp_ver.c_str(), name.c_str());
+    RCLCPP_FATAL(rclcpp::get_logger("RBY1SystemHardware"),
+                 "\033[1;31m  - Connected Robot: Model %s, Version %s\033[0m",
+                 robot_info.robot_model_name.c_str(), robot_info.robot_model_version.c_str());
+    RCLCPP_FATAL(rclcpp::get_logger("RBY1SystemHardware"),
+                 "\033[1;31mPlease check that you launched the correct moveit demo.launch.py package.\033[0m");
+    RCLCPP_FATAL(rclcpp::get_logger("RBY1SystemHardware"),
+                 "\033[1;31m====================================================================\033[0m");
+                 
+    robot_->disconnect();
+    return hardware_interface::CallbackReturn::ERROR;
+  }
+
   // Map URDF joint names to SDK index positions
   for (size_t i = 0; i < info_.joints.size(); ++i) {
     const auto &joint_name = info_.joints[i].name;
@@ -444,23 +498,31 @@ RBY1SystemHardware::read(const rclcpp::Time & /*time*/,
     joint_state = latest_joint_state_;
   }
 
+  bool use_fallback = false;
   if (!joint_state) {
-    RCLCPP_WARN_THROTTLE(rclcpp::get_logger("RBY1SystemHardware"),
-                         *node_->get_clock(), 1000,
-                         "No joint state received yet from driver.");
+    use_fallback = true;
+  } else {
+    double age = (node_->now() - joint_state->header.stamp).seconds();
+    if (age > 0.2) {
+      use_fallback = true;
+      RCLCPP_WARN_THROTTLE(rclcpp::get_logger("RBY1SystemHardware"),
+                           *node_->get_clock(), 2000,
+                           "Joint state from driver is stale (age: %.3f s). Using SDK fallback.", age);
+    }
+  }
 
-    // Fallback: query SDK to prevent startup/read failure
-    static bool fallback_initialized = false;
-    if (!fallback_initialized) {
-      std::vector<double> sdk_positions, sdk_velocities, sdk_torques;
-      robot_->get_joint_states(sdk_positions, sdk_velocities, sdk_torques);
-      if (sdk_positions.size() >= (size_t)robot_->get_dof()) {
-        for (size_t i = 0; i < info_.joints.size(); ++i) {
-          unsigned int sdk_idx = joint_name_to_sdk_index_[i];
-          hw_positions_[i] = sdk_positions[sdk_idx];
-          hw_velocities_[i] = sdk_velocities[sdk_idx];
-        }
-        fallback_initialized = true;
+  if (use_fallback) {
+    RCLCPP_WARN_THROTTLE(rclcpp::get_logger("RBY1SystemHardware"),
+                         *node_->get_clock(), 5000,
+                         "No active joint state from driver. Querying SDK directly...");
+
+    std::vector<double> sdk_positions, sdk_velocities, sdk_torques;
+    robot_->get_joint_states(sdk_positions, sdk_velocities, sdk_torques);
+    if (sdk_positions.size() >= (size_t)robot_->get_dof()) {
+      for (size_t i = 0; i < info_.joints.size(); ++i) {
+        unsigned int sdk_idx = joint_name_to_sdk_index_[i];
+        hw_positions_[i] = sdk_positions[sdk_idx];
+        hw_velocities_[i] = sdk_velocities[sdk_idx];
       }
     }
     for (size_t i = 0; i < info_.joints.size(); ++i) {

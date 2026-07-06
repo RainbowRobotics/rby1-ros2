@@ -26,4 +26,7 @@ bool robot_stream_state
 
 # Collision status
 bool collision
+
+# Robot version
+float64 robot_version
  
