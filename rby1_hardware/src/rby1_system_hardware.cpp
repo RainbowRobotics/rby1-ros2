@@ -440,6 +440,12 @@ hardware_interface::CallbackReturn RBY1SystemHardware::on_activate(
     return hardware_interface::CallbackReturn::ERROR;
   }
 
+  // Start asynchronous IO worker thread
+  worker_running_ = true;
+  is_stream_alive_ = true;
+  has_pending_command_ = false;
+  io_worker_thread_ = std::thread(&RBY1SystemHardware::io_worker_loop, this);
+
   // Populate initial state
   std::vector<double> sdk_positions, sdk_velocities, sdk_torques;
   robot_->get_joint_states(sdk_positions, sdk_velocities, sdk_torques);
@@ -460,6 +466,19 @@ hardware_interface::CallbackReturn RBY1SystemHardware::on_deactivate(
     const rclcpp_lifecycle::State & /*previous_state*/) {
   RCLCPP_INFO(rclcpp::get_logger("RBY1SystemHardware"),
               "Deactivating RBY1 Hardware Interface...");
+
+  // Stop IO worker thread
+  worker_running_ = false;
+  {
+    std::lock_guard<std::mutex> lock(cmd_exchange_mutex_);
+    pending_command_.cancel_requested = true;
+    has_pending_command_ = true;
+  }
+  cmd_exchange_cv_.notify_all();
+
+  if (io_worker_thread_.joinable()) {
+    io_worker_thread_.join();
+  }
 
   if (hardware_control_client_->service_is_ready()) {
     auto request = std::make_shared<rby1_msgs::srv::StateOnOff::Request>();
@@ -596,12 +615,7 @@ RBY1SystemHardware::write(const rclcpp::Time & /*time*/,
     }
   }
 
-  // Send stream command to upper body joints
-  robot_->send_stream_command(sdk_target_positions, velocity_limit_,
-                              acceleration_limit_);
-
-  // Process and send mobility command if twist has been received and is fresh
-  // (< 0.5s)
+  // Process mobility command if twist has been received and is fresh (< 0.5s)
   double vx = 0.0;
   double vy = 0.0;
   double wz = 0.0;
@@ -626,11 +640,76 @@ RBY1SystemHardware::write(const rclcpp::Time & /*time*/,
     }
   }
 
-  if (has_twist) {
-    robot_->send_mobility_command(vx, vy, wz, 0.1);
+  // Non-blocking: update pending_command_ and notify worker thread
+  {
+    std::lock_guard<std::mutex> lock(cmd_exchange_mutex_);
+    pending_command_.joint_positions = std::move(sdk_target_positions);
+    pending_command_.vel_limit = velocity_limit_;
+    pending_command_.acc_limit = acceleration_limit_;
+    pending_command_.has_twist = has_twist;
+    pending_command_.vx = vx;
+    pending_command_.vy = vy;
+    pending_command_.wz = wz;
+    pending_command_.cancel_requested = false;
+    has_pending_command_ = true;
+  }
+  cmd_exchange_cv_.notify_one();
+
+  if (!is_stream_alive_.load()) {
+    return hardware_interface::return_type::ERROR;
   }
 
   return hardware_interface::return_type::OK;
+}
+
+void RBY1SystemHardware::io_worker_loop() {
+  while (worker_running_) {
+    ControlStreamCommand cmd;
+    {
+      std::unique_lock<std::mutex> lock(cmd_exchange_mutex_);
+      cmd_exchange_cv_.wait(lock, [this] {
+        return has_pending_command_ || !worker_running_;
+      });
+
+      if (!worker_running_) {
+        break;
+      }
+
+      cmd = pending_command_;
+      has_pending_command_ = false;
+    }
+
+    if (cmd.cancel_requested) {
+      if (robot_) {
+        robot_->close_stream();
+      }
+      continue;
+    }
+
+    if (!robot_ || !robot_->is_connected()) {
+      continue;
+    }
+
+    try {
+      if (!cmd.joint_positions.empty()) {
+        robot_->send_stream_command(cmd.joint_positions, cmd.vel_limit,
+                                    cmd.acc_limit);
+      }
+
+      if (cmd.has_twist) {
+        robot_->send_mobility_command(cmd.vx, cmd.vy, cmd.wz, 0.1);
+      }
+    } catch (const std::exception &e) {
+      RCLCPP_ERROR(node_->get_logger(),
+                   "Exception in RBY1SystemHardware IO worker thread: %s",
+                   e.what());
+      is_stream_alive_ = false;
+    } catch (...) {
+      RCLCPP_ERROR(node_->get_logger(),
+                   "Unknown exception in RBY1SystemHardware IO worker thread.");
+      is_stream_alive_ = false;
+    }
+  }
 }
 
 void RBY1SystemHardware::joint_state_callback(
