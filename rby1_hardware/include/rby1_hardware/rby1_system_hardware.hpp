@@ -14,6 +14,9 @@
 #include "geometry_msgs/msg/twist.hpp"
 #include "rby1_msgs/srv/state_on_off.hpp"
 #include <mutex>
+#include <thread>
+#include <atomic>
+#include <condition_variable>
 
 #include "rby1-sdk/robot.h"
 #include "rby1-sdk/model.h"
@@ -308,6 +311,19 @@ public:
   }
 };
 
+struct ControlStreamCommand {
+  std::vector<double> joint_positions;
+  double vel_limit{-1.0};
+  double acc_limit{-1.0};
+
+  bool has_twist{false};
+  double vx{0.0};
+  double vy{0.0};
+  double wz{0.0};
+
+  bool cancel_requested{false};
+};
+
 class RBY1SystemHardware : public hardware_interface::SystemInterface {
 public:
   hardware_interface::CallbackReturn on_init(const hardware_interface::HardwareInfo & info) override;
@@ -363,6 +379,17 @@ private:
   geometry_msgs::msg::Twist::SharedPtr latest_twist_;
   rclcpp::Time cmd_vel_recv_time_;
 
+  // Single IO Worker Thread and non-blocking command exchange buffer
+  std::thread io_worker_thread_;
+  std::atomic<bool> worker_running_{false};
+  std::atomic<bool> is_stream_alive_{true};
+
+  std::mutex cmd_exchange_mutex_;
+  std::condition_variable cmd_exchange_cv_;
+  ControlStreamCommand pending_command_;
+  bool has_pending_command_{false};
+
+  void io_worker_loop();
   void joint_state_callback(const sensor_msgs::msg::JointState::SharedPtr msg);
   void cmd_vel_callback(const geometry_msgs::msg::Twist::SharedPtr msg);
 };

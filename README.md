@@ -12,7 +12,7 @@ Please click the link below for more details.
 `rby1_ros2` is a unified ROS 2 driver package for controlling the Rainbow Robotics RBY1 robot.  
 It wraps the RBY1 C++ SDK into a ROS 2 node, providing state monitoring and multiple control modes (Joint Position, Cartesian Position, Impedance, Gravity Compensation, and Trajectory Streaming) through a clean action/service/topic interface.
 
-- **ROS 2 version**: Humble
+- **ROS 2 version**: Humble(recommend), Jazzy
 - **OS**: Ubuntu 22.04
 - **SDK compatibility**: rby1-sdk `0.10.x` and later
 
@@ -71,6 +71,12 @@ ros2 pkg list | grep moveit
 sudo apt install ros-humble-gripper-controllers
 sudo apt install ros-humble-joint-trajectory-controller
 ```
+
+### 1-5. Install Nav2(optional)
+
+<https://docs.nav2.org/development_guides/build_docs/index.html#build-instructions>
+
+
 
 ### 1-5. Environment Setup
 
