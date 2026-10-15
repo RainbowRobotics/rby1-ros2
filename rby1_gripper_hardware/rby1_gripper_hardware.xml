@@ -1,0 +1,6 @@
+<library path="rby1_gripper_hardware">
+  <class name="rby1_gripper_hardware/Rby1GripperSystem" type="rby1_gripper_hardware::Rby1GripperSystem"
+    base_class_type="hardware_interface::SystemInterface">
+    <description>RB-Y1 grippers (RB gripper Dynamixels on the UPC serial port).</description>
+  </class>
+</library>
