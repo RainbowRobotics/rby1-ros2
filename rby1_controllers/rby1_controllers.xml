@@ -1,0 +1,18 @@
+<library path="rby1_controllers">
+  <class name="rby1_controllers/JointStreamController" type="rby1_controllers::JointStreamController"
+    base_class_type="controller_interface::ControllerInterface">
+    <description>Joint position or joint impedance targets streamed from a JointState topic (Isaac ROS compatible).</description>
+  </class>
+  <class name="rby1_controllers/GravityCompensationController" type="rby1_controllers::GravityCompensationController"
+    base_class_type="controller_interface::ControllerInterface">
+    <description>SDK gravity compensation of one RB-Y1 component.</description>
+  </class>
+  <class name="rby1_controllers/BaseVelocityController" type="rby1_controllers::BaseVelocityController"
+    base_class_type="controller_interface::ControllerInterface">
+    <description>Mobile base cmd_vel through the SDK SE2 velocity controller, with odometry.</description>
+  </class>
+  <class name="rby1_controllers/TaskSpaceController" type="rby1_controllers::TaskSpaceController"
+    base_class_type="controller_interface::ControllerInterface">
+    <description>Cartesian, Cartesian impedance, impedance and optimal control targets.</description>
+  </class>
+</library>
