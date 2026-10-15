@@ -1,139 +1,331 @@
 <?xml version="1.0"?>
+<!--
+  ros2_control description of an RB-Y1.
+
+  Every rby1-sdk motion controller is reachable through the command interfaces declared here:
+    joint position / joint group position   <joint>/position
+    joint impedance                         <joint>/{position,stiffness,damping_ratio,torque_limit}
+    joint velocity (wheels)                 <wheel>/velocity
+    gravity compensation                    <component>_gravity_compensation/enable
+    SE2 velocity                            base_se2/{linear_x,linear_y,angular_z}
+    Cartesian / Cartesian impedance /
+    impedance / optimal control             <component>_<kind>/t<i>.{x,y,z,qx,qy,qz,qw}, ...
+  The hardware interface selects the SDK controller of each component from the interfaces a
+  controller claims (rby1_hardware_interface/command_modes.hpp).
+-->
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
-  <xacro:macro name="rby1_state_interfaces" params="joint_name">
-    <joint name="${joint_name}">
+
+  <!-- ===== joints ===================================================================== -->
+
+  <xacro:macro name="rby1_joint" params="name position:=true impedance:=false velocity:=false">
+    <joint name="${name}">
+      <xacro:if value="${position}">
+        <command_interface name="position"/>
+      </xacro:if>
+      <xacro:if value="${impedance}">
+        <command_interface name="stiffness"/>
+        <command_interface name="damping_ratio"/>
+        <command_interface name="torque_limit"/>
+      </xacro:if>
+      <xacro:if value="${velocity}">
+        <command_interface name="velocity"/>
+      </xacro:if>
       <state_interface name="position">
         <param name="initial_value">0.0</param>
       </state_interface>
-      <state_interface name="velocity">
-        <param name="initial_value">0.0</param>
-      </state_interface>
-      <state_interface name="effort">
-        <param name="initial_value">0.0</param>
-      </state_interface>
+      <state_interface name="velocity"/>
+      <state_interface name="effort"/>
     </joint>
   </xacro:macro>
 
-  <xacro:macro name="rby1_hardware_block" params="robot_ip model use_mock_hardware auto_reconnect read_timeout_sec connect_timeout_sec">
+  <xacro:macro name="rby1_joint_list" params="names position impedance velocity">
+    <xacro:if value="${len(names) > 0}">
+      <xacro:rby1_joint name="${names[0]}" position="${position}" impedance="${impedance}" velocity="${velocity}"/>
+      <xacro:rby1_joint_list names="${names[1:]}" position="${position}" impedance="${impedance}" velocity="${velocity}"/>
+    </xacro:if>
+  </xacro:macro>
+
+  <!-- ===== gpio blocks ================================================================= -->
+
+  <!-- Pose slot t<i> with optional extra per-target fields. -->
+  <xacro:macro name="rby1_pose_slots" params="count index:=0 extras:=${[]}">
+    <xacro:if value="${index &lt; count}">
+      <xacro:property name="fields" value="${['x', 'y', 'z', 'qx', 'qy', 'qz', 'qw'] + extras}"/>
+      <xacro:rby1_interface_list prefix="t${index}." names="${fields}"/>
+      <xacro:rby1_pose_slots count="${count}" index="${index + 1}" extras="${extras}"/>
+    </xacro:if>
+  </xacro:macro>
+
+  <xacro:macro name="rby1_interface_list" params="prefix names">
+    <xacro:if value="${len(names) > 0}">
+      <command_interface name="${prefix}${names[0]}"/>
+      <xacro:rby1_interface_list prefix="${prefix}" names="${names[1:]}"/>
+    </xacro:if>
+  </xacro:macro>
+
+  <xacro:macro name="rby1_joint_target_slots" params="count index:=0 extras:=${[]}">
+    <xacro:if value="${index &lt; count}">
+      <xacro:rby1_interface_list prefix="j${index}." names="${['position'] + extras}"/>
+      <xacro:rby1_joint_target_slots count="${count}" index="${index + 1}" extras="${extras}"/>
+    </xacro:if>
+  </xacro:macro>
+
+  <xacro:macro name="rby1_gravity_compensation_gpio" params="component">
+    <gpio name="${component}_gravity_compensation">
+      <param name="kind">gravity_compensation</param>
+      <param name="component">${component}</param>
+      <command_interface name="enable"/>
+    </gpio>
+  </xacro:macro>
+
+  <xacro:macro name="rby1_se2_velocity_gpio" params="max_linear_velocity:=1.0 max_angular_velocity:=1.5">
+    <gpio name="base_se2">
+      <param name="kind">se2_velocity</param>
+      <param name="component">mobility</param>
+      <param name="max_linear_velocity">${max_linear_velocity}</param>
+      <param name="max_angular_velocity">${max_angular_velocity}</param>
+      <command_interface name="linear_x"/>
+      <command_interface name="linear_y"/>
+      <command_interface name="angular_z"/>
+    </gpio>
+  </xacro:macro>
+
+  <!-- kind: cartesian | cartesian_impedance | impedance; targets: list of "ref_link:link". -->
+  <xacro:macro name="rby1_task_space_gpio" params="component kind targets joint_targets:=${[]} **parameters">
+    <gpio name="${component}_${kind}">
+      <param name="kind">${kind}</param>
+      <param name="component">${component}</param>
+      <param name="targets">${','.join(targets)}</param>
+      <xacro:if value="${len(joint_targets) > 0}">
+        <param name="joint_targets">${','.join(joint_targets)}</param>
+      </xacro:if>
+      <xacro:insert_block name="parameters"/>
+      <xacro:if value="${kind == 'cartesian'}">
+        <xacro:rby1_pose_slots count="${len(targets)}"
+          extras="${['linear_velocity_limit', 'angular_velocity_limit', 'acceleration_limit_scaling']}"/>
+      </xacro:if>
+      <xacro:if value="${kind == 'cartesian_impedance'}">
+        <xacro:rby1_pose_slots count="${len(targets)}"
+          extras="${['linear_velocity_limit', 'angular_velocity_limit', 'linear_acceleration_limit', 'angular_acceleration_limit']}"/>
+      </xacro:if>
+      <xacro:if value="${kind == 'impedance'}">
+        <xacro:rby1_pose_slots count="1"/>
+      </xacro:if>
+      <xacro:rby1_joint_target_slots count="${len(joint_targets)}"
+        extras="${['velocity_limit', 'acceleration_limit']}"/>
+    </gpio>
+  </xacro:macro>
+
+  <xacro:macro name="rby1_optimal_control_gpio" params="component targets com_ref_link:='' joint_targets:=${[]}">
+    <gpio name="${component}_optimal_control">
+      <param name="kind">optimal_control</param>
+      <param name="component">${component}</param>
+      <param name="targets">${','.join(targets)}</param>
+      <xacro:if value="${com_ref_link != ''}">
+        <param name="com_ref_link">${com_ref_link}</param>
+      </xacro:if>
+      <xacro:if value="${len(joint_targets) > 0}">
+        <param name="joint_targets">${','.join(joint_targets)}</param>
+      </xacro:if>
+      <xacro:rby1_pose_slots count="${len(targets)}" extras="${['translation_weight', 'rotation_weight']}"/>
+      <xacro:if value="${com_ref_link != ''}">
+        <command_interface name="com.x"/>
+        <command_interface name="com.y"/>
+        <command_interface name="com.z"/>
+        <command_interface name="com.weight"/>
+      </xacro:if>
+      <xacro:rby1_joint_target_slots count="${len(joint_targets)}" extras="${['weight']}"/>
+    </gpio>
+  </xacro:macro>
+
+  <xacro:macro name="rby1_status_gpio">
+    <gpio name="rby1_status">
+      <param name="kind">status</param>
+      <state_interface name="control_manager_state"/>
+      <state_interface name="control_state"/>
+      <state_interface name="time_scale"/>
+      <state_interface name="emo_pressed"/>
+      <state_interface name="stream_active"/>
+      <state_interface name="stream_restarts"/>
+      <state_interface name="clamp_count"/>
+      <state_interface name="state_age"/>
+      <state_interface name="odometry_x"/>
+      <state_interface name="odometry_y"/>
+      <state_interface name="odometry_yaw"/>
+      <state_interface name="ft_right_fx"/>
+      <state_interface name="ft_right_fy"/>
+      <state_interface name="ft_right_fz"/>
+      <state_interface name="ft_right_tx"/>
+      <state_interface name="ft_right_ty"/>
+      <state_interface name="ft_right_tz"/>
+      <state_interface name="ft_left_fx"/>
+      <state_interface name="ft_left_fy"/>
+      <state_interface name="ft_left_fz"/>
+      <state_interface name="ft_left_tx"/>
+      <state_interface name="ft_left_ty"/>
+      <state_interface name="ft_left_tz"/>
+      <state_interface name="mode_torso"/>
+      <state_interface name="mode_right_arm"/>
+      <state_interface name="mode_left_arm"/>
+      <state_interface name="mode_head"/>
+      <state_interface name="mode_mobility"/>
+      <state_interface name="mode_body"/>
+    </gpio>
+  </xacro:macro>
+
+  <!-- ===== hardware ==================================================================== -->
+
+  <xacro:macro name="rby1_hardware" params="model robot_ip use_mock_hardware backend auto_enable command_rate state_rate">
     <hardware>
       <xacro:if value="${use_mock_hardware}">
         <plugin>mock_components/GenericSystem</plugin>
       </xacro:if>
       <xacro:unless value="${use_mock_hardware}">
         <plugin>rby1_hardware_interface/Rby1SystemInterface</plugin>
-        <param name="robot_ip">${robot_ip}</param>
         <param name="model">${model}</param>
-        <param name="auto_reconnect">${auto_reconnect}</param>
-        <param name="read_timeout_sec">${read_timeout_sec}</param>
-        <param name="connect_timeout_sec">${connect_timeout_sec}</param>
+        <param name="robot_ip">${robot_ip}</param>
+        <param name="backend">${backend}</param>
+        <param name="auto_enable">${auto_enable}</param>
+        <param name="command_rate">${command_rate}</param>
+        <param name="state_rate">${state_rate}</param>
+        <!-- Values validated on the real robot (100 Hz stream, rby1_lab deploy runtime). -->
+        <param name="minimum_time">0.1</param>
+        <param name="control_hold_time">1.0</param>
+        <param name="acceleration_limit">2.0</param>
+        <param name="velocity_limit_scale">0.5</param>
+        <param name="max_tracking_error">0.15</param>
+        <param name="robot_parameter.joint_position_command.cutoff_frequency">5.0</param>
       </xacro:unless>
     </hardware>
   </xacro:macro>
 
-  <xacro:macro name="rby1a_ros2_control" params="robot_ip use_mock_hardware auto_reconnect read_timeout_sec connect_timeout_sec">
-    <ros2_control name="RBY1System" type="system">
-      <xacro:rby1_hardware_block
-        robot_ip="${robot_ip}"
-        model="a"
-        use_mock_hardware="${use_mock_hardware}"
-        auto_reconnect="${auto_reconnect}"
-        read_timeout_sec="${read_timeout_sec}"
-        connect_timeout_sec="${connect_timeout_sec}"/>
+  <!--
+    Generic RB-Y1 ros2_control block.
+      torso_joints / head_joints / wheel_joints: joint name lists of the model
+      impedance: export stiffness/damping_ratio/torque_limit on torso and arm joints
+      mobility:  export wheel velocity and base_se2
+      task_space: export Cartesian, Cartesian impedance, impedance and optimal control gpios
+  -->
+  <xacro:macro name="rby1_ros2_control"
+    params="model torso_joints wheel_joints torso_link robot_ip use_mock_hardware backend:=sdk auto_enable:=false
+            command_rate:=100 state_rate:=200 impedance:=true task_space:=true name:=RBY1System">
+    <xacro:property name="arm_r" value="${['right_arm_0', 'right_arm_1', 'right_arm_2', 'right_arm_3', 'right_arm_4', 'right_arm_5', 'right_arm_6']}"/>
+    <xacro:property name="arm_l" value="${['left_arm_0', 'left_arm_1', 'left_arm_2', 'left_arm_3', 'left_arm_4', 'left_arm_5', 'left_arm_6']}"/>
+    <ros2_control name="${name}" type="system">
+      <xacro:rby1_hardware model="${model}" robot_ip="${robot_ip}" use_mock_hardware="${use_mock_hardware}"
+        backend="${backend}" auto_enable="${auto_enable}" command_rate="${command_rate}" state_rate="${state_rate}"/>
 
-      <xacro:rby1_state_interfaces joint_name="torso_0"/>
-      <xacro:rby1_state_interfaces joint_name="torso_1"/>
-      <xacro:rby1_state_interfaces joint_name="torso_2"/>
-      <xacro:rby1_state_interfaces joint_name="torso_3"/>
-      <xacro:rby1_state_interfaces joint_name="torso_4"/>
-      <xacro:rby1_state_interfaces joint_name="torso_5"/>
-      <xacro:rby1_state_interfaces joint_name="right_arm_0"/>
-      <xacro:rby1_state_interfaces joint_name="right_arm_1"/>
-      <xacro:rby1_state_interfaces joint_name="right_arm_2"/>
-      <xacro:rby1_state_interfaces joint_name="right_arm_3"/>
-      <xacro:rby1_state_interfaces joint_name="right_arm_4"/>
-      <xacro:rby1_state_interfaces joint_name="right_arm_5"/>
-      <xacro:rby1_state_interfaces joint_name="right_arm_6"/>
-      <xacro:rby1_state_interfaces joint_name="left_arm_0"/>
-      <xacro:rby1_state_interfaces joint_name="left_arm_1"/>
-      <xacro:rby1_state_interfaces joint_name="left_arm_2"/>
-      <xacro:rby1_state_interfaces joint_name="left_arm_3"/>
-      <xacro:rby1_state_interfaces joint_name="left_arm_4"/>
-      <xacro:rby1_state_interfaces joint_name="left_arm_5"/>
-      <xacro:rby1_state_interfaces joint_name="left_arm_6"/>
-      <xacro:rby1_state_interfaces joint_name="head_0"/>
-      <xacro:rby1_state_interfaces joint_name="head_1"/>
-      <xacro:rby1_state_interfaces joint_name="right_wheel"/>
-      <xacro:rby1_state_interfaces joint_name="left_wheel"/>
+      <xacro:rby1_joint_list names="${torso_joints}" position="true" impedance="${impedance}" velocity="false"/>
+      <xacro:rby1_joint_list names="${arm_r}" position="true" impedance="${impedance}" velocity="false"/>
+      <xacro:rby1_joint_list names="${arm_l}" position="true" impedance="${impedance}" velocity="false"/>
+      <xacro:rby1_joint_list names="${['head_0', 'head_1']}" position="true" impedance="false" velocity="false"/>
+      <xacro:rby1_joint_list names="${wheel_joints}" position="false" impedance="false" velocity="true"/>
+
+      <xacro:rby1_gravity_compensation_gpio component="torso"/>
+      <xacro:rby1_gravity_compensation_gpio component="right_arm"/>
+      <xacro:rby1_gravity_compensation_gpio component="left_arm"/>
+      <xacro:rby1_gravity_compensation_gpio component="body"/>
+      <xacro:if value="${len(wheel_joints) > 0}">
+        <xacro:rby1_se2_velocity_gpio/>
+      </xacro:if>
+
+      <xacro:if value="${task_space}">
+        <xacro:rby1_task_space_gpio component="right_arm" kind="cartesian" targets="${['base:ee_right']}">
+          <parameters>
+            <param name="linear_velocity_limit">0.3</param>
+            <param name="angular_velocity_limit">0.8</param>
+          </parameters>
+        </xacro:rby1_task_space_gpio>
+        <xacro:rby1_task_space_gpio component="left_arm" kind="cartesian" targets="${['base:ee_left']}">
+          <parameters>
+            <param name="linear_velocity_limit">0.3</param>
+            <param name="angular_velocity_limit">0.8</param>
+          </parameters>
+        </xacro:rby1_task_space_gpio>
+        <xacro:rby1_task_space_gpio component="torso" kind="cartesian" targets="${['base:' + torso_link]}">
+          <parameters>
+            <param name="linear_velocity_limit">0.3</param>
+            <param name="angular_velocity_limit">0.8</param>
+          </parameters>
+        </xacro:rby1_task_space_gpio>
+        <xacro:rby1_task_space_gpio component="body" kind="cartesian"
+          targets="${['base:' + torso_link, torso_link + ':ee_right', torso_link + ':ee_left']}">
+          <parameters>
+            <param name="linear_velocity_limit">0.3</param>
+            <param name="angular_velocity_limit">0.8</param>
+          </parameters>
+        </xacro:rby1_task_space_gpio>
+
+        <xacro:rby1_task_space_gpio component="right_arm" kind="cartesian_impedance" targets="${['base:ee_right']}">
+          <parameters>
+            <param name="joint_stiffness">80,80,80,80,80,80,40</param>
+            <param name="joint_torque_limit">30,30,30,30,30,30,10</param>
+          </parameters>
+        </xacro:rby1_task_space_gpio>
+        <xacro:rby1_task_space_gpio component="left_arm" kind="cartesian_impedance" targets="${['base:ee_left']}">
+          <parameters>
+            <param name="joint_stiffness">80,80,80,80,80,80,40</param>
+            <param name="joint_torque_limit">30,30,30,30,30,30,10</param>
+          </parameters>
+        </xacro:rby1_task_space_gpio>
+        <xacro:rby1_task_space_gpio component="body" kind="cartesian_impedance"
+          targets="${['base:' + torso_link, torso_link + ':ee_right', torso_link + ':ee_left']}">
+          <parameters>
+            <param name="joint_damping_ratio">1.0</param>
+          </parameters>
+        </xacro:rby1_task_space_gpio>
+
+        <xacro:rby1_task_space_gpio component="right_arm" kind="impedance" targets="${['base:ee_right']}">
+          <parameters>
+            <param name="translation_weight">1000,1000,1000</param>
+            <param name="rotation_weight">50,50,50</param>
+          </parameters>
+        </xacro:rby1_task_space_gpio>
+        <xacro:rby1_task_space_gpio component="left_arm" kind="impedance" targets="${['base:ee_left']}">
+          <parameters>
+            <param name="translation_weight">1000,1000,1000</param>
+            <param name="rotation_weight">50,50,50</param>
+          </parameters>
+        </xacro:rby1_task_space_gpio>
+        <xacro:rby1_task_space_gpio component="torso" kind="impedance" targets="${['base:' + torso_link]}">
+          <parameters>
+            <param name="translation_weight">1000,1000,1000</param>
+            <param name="rotation_weight">100,100,100</param>
+          </parameters>
+        </xacro:rby1_task_space_gpio>
+
+        <xacro:rby1_optimal_control_gpio component="body"
+          targets="${['base:' + torso_link, 'base:ee_right', 'base:ee_left']}" com_ref_link="base"/>
+        <xacro:rby1_optimal_control_gpio component="torso" targets="${['base:' + torso_link]}"/>
+      </xacro:if>
+
+      <xacro:rby1_status_gpio/>
     </ros2_control>
   </xacro:macro>
 
-  <xacro:macro name="rby1m_ros2_control" params="robot_ip use_mock_hardware auto_reconnect read_timeout_sec connect_timeout_sec">
-    <ros2_control name="RBY1System" type="system">
-      <xacro:rby1_hardware_block
-        robot_ip="${robot_ip}"
-        model="m"
-        use_mock_hardware="${use_mock_hardware}"
-        auto_reconnect="${auto_reconnect}"
-        read_timeout_sec="${read_timeout_sec}"
-        connect_timeout_sec="${connect_timeout_sec}"/>
-
-      <xacro:rby1_state_interfaces joint_name="torso_0"/>
-      <xacro:rby1_state_interfaces joint_name="torso_1"/>
-      <xacro:rby1_state_interfaces joint_name="torso_2"/>
-      <xacro:rby1_state_interfaces joint_name="torso_3"/>
-      <xacro:rby1_state_interfaces joint_name="torso_4"/>
-      <xacro:rby1_state_interfaces joint_name="torso_5"/>
-      <xacro:rby1_state_interfaces joint_name="right_arm_0"/>
-      <xacro:rby1_state_interfaces joint_name="right_arm_1"/>
-      <xacro:rby1_state_interfaces joint_name="right_arm_2"/>
-      <xacro:rby1_state_interfaces joint_name="right_arm_3"/>
-      <xacro:rby1_state_interfaces joint_name="right_arm_4"/>
-      <xacro:rby1_state_interfaces joint_name="right_arm_5"/>
-      <xacro:rby1_state_interfaces joint_name="right_arm_6"/>
-      <xacro:rby1_state_interfaces joint_name="left_arm_0"/>
-      <xacro:rby1_state_interfaces joint_name="left_arm_1"/>
-      <xacro:rby1_state_interfaces joint_name="left_arm_2"/>
-      <xacro:rby1_state_interfaces joint_name="left_arm_3"/>
-      <xacro:rby1_state_interfaces joint_name="left_arm_4"/>
-      <xacro:rby1_state_interfaces joint_name="left_arm_5"/>
-      <xacro:rby1_state_interfaces joint_name="left_arm_6"/>
-      <xacro:rby1_state_interfaces joint_name="head_0"/>
-      <xacro:rby1_state_interfaces joint_name="head_1"/>
-      <xacro:rby1_state_interfaces joint_name="wheel_fr"/>
-      <xacro:rby1_state_interfaces joint_name="wheel_fl"/>
-      <xacro:rby1_state_interfaces joint_name="wheel_rr"/>
-      <xacro:rby1_state_interfaces joint_name="wheel_rl"/>
-    </ros2_control>
+  <!-- Model wrappers (kept for compatibility with the earlier read-only description). -->
+  <xacro:macro name="rby1a_ros2_control" params="robot_ip use_mock_hardware backend:=sdk auto_enable:=false
+      command_rate:=100 state_rate:=200 impedance:=true task_space:=true">
+    <xacro:rby1_ros2_control model="a" robot_ip="${robot_ip}" use_mock_hardware="${use_mock_hardware}"
+      backend="${backend}" auto_enable="${auto_enable}" command_rate="${command_rate}" state_rate="${state_rate}"
+      impedance="${impedance}" task_space="${task_space}" torso_link="link_torso_5"
+      torso_joints="${['torso_0', 'torso_1', 'torso_2', 'torso_3', 'torso_4', 'torso_5']}" wheel_joints="${['right_wheel', 'left_wheel']}"/>
   </xacro:macro>
 
-  <xacro:macro name="rby1ub_ros2_control" params="robot_ip use_mock_hardware auto_reconnect read_timeout_sec connect_timeout_sec">
-    <ros2_control name="RBY1System" type="system">
-      <xacro:rby1_hardware_block
-        robot_ip="${robot_ip}"
-        model="ub"
-        use_mock_hardware="${use_mock_hardware}"
-        auto_reconnect="${auto_reconnect}"
-        read_timeout_sec="${read_timeout_sec}"
-        connect_timeout_sec="${connect_timeout_sec}"/>
+  <xacro:macro name="rby1m_ros2_control" params="robot_ip use_mock_hardware backend:=sdk auto_enable:=false
+      command_rate:=100 state_rate:=200 impedance:=true task_space:=true">
+    <xacro:rby1_ros2_control model="m" robot_ip="${robot_ip}" use_mock_hardware="${use_mock_hardware}"
+      backend="${backend}" auto_enable="${auto_enable}" command_rate="${command_rate}" state_rate="${state_rate}"
+      impedance="${impedance}" task_space="${task_space}" torso_link="link_torso_5"
+      torso_joints="${['torso_0', 'torso_1', 'torso_2', 'torso_3', 'torso_4', 'torso_5']}"
+      wheel_joints="${['wheel_fr', 'wheel_fl', 'wheel_rr', 'wheel_rl']}"/>
+  </xacro:macro>
 
-      <xacro:rby1_state_interfaces joint_name="torso_hp"/>
-      <xacro:rby1_state_interfaces joint_name="torso_5"/>
-      <xacro:rby1_state_interfaces joint_name="right_arm_0"/>
-      <xacro:rby1_state_interfaces joint_name="right_arm_1"/>
-      <xacro:rby1_state_interfaces joint_name="right_arm_2"/>
-      <xacro:rby1_state_interfaces joint_name="right_arm_3"/>
-      <xacro:rby1_state_interfaces joint_name="right_arm_4"/>
-      <xacro:rby1_state_interfaces joint_name="right_arm_5"/>
-      <xacro:rby1_state_interfaces joint_name="right_arm_6"/>
-      <xacro:rby1_state_interfaces joint_name="left_arm_0"/>
-      <xacro:rby1_state_interfaces joint_name="left_arm_1"/>
-      <xacro:rby1_state_interfaces joint_name="left_arm_2"/>
-      <xacro:rby1_state_interfaces joint_name="left_arm_3"/>
-      <xacro:rby1_state_interfaces joint_name="left_arm_4"/>
-      <xacro:rby1_state_interfaces joint_name="left_arm_5"/>
-      <xacro:rby1_state_interfaces joint_name="left_arm_6"/>
-      <xacro:rby1_state_interfaces joint_name="head_0"/>
-      <xacro:rby1_state_interfaces joint_name="head_1"/>
-    </ros2_control>
+  <xacro:macro name="rby1ub_ros2_control" params="robot_ip use_mock_hardware backend:=sdk auto_enable:=false
+      command_rate:=100 state_rate:=200 impedance:=true task_space:=true">
+    <xacro:rby1_ros2_control model="ub" robot_ip="${robot_ip}" use_mock_hardware="${use_mock_hardware}"
+      backend="${backend}" auto_enable="${auto_enable}" command_rate="${command_rate}" state_rate="${state_rate}"
+      impedance="${impedance}" task_space="${task_space}" torso_link="link_torso_5"
+      torso_joints="${['torso_hp', 'torso_5']}" wheel_joints="${[]}"/>
   </xacro:macro>
 </robot>

@@ -2,23 +2,42 @@
 <robot name="rby1m" xmlns:xacro="http://www.ros.org/wiki/xacro">
   <!--
     Top-level wrapper for the RBY1-M platform.
-    Supported versions: 1.0, 1.1, 1.2 (default), 1.3 (WY/WP/WR wrist).
-    Vendored from rby1-sdk/models/rby1m/urdf/model_v<version>.urdf.
+    Supported versions: 1.0, 1.1, 1.2 (default), 1.3 (WY/WP/WR wrist). Vendored from rby1-sdk/models/rby1m/urdf/model_v<version>.urdf.
   -->
   <xacro:arg name="version" default="1.2"/>
-  <xacro:arg name="robot_ip" default="127.0.0.1:50051"/>
+  <xacro:arg name="robot_ip" default="192.168.30.1:50051"/>
   <xacro:arg name="use_mock_hardware" default="false"/>
-  <xacro:arg name="auto_reconnect" default="true"/>
-  <xacro:arg name="read_timeout_sec" default="0.5"/>
-  <xacro:arg name="connect_timeout_sec" default="3.0"/>
+  <!-- sdk: real robot or rby1 simulator core; fake: in-memory robot for tests -->
+  <xacro:arg name="backend" default="sdk"/>
+  <xacro:arg name="auto_enable" default="false"/>
+  <xacro:arg name="command_rate" default="100"/>
+  <xacro:arg name="state_rate" default="200"/>
+  <xacro:arg name="impedance" default="true"/>
+  <xacro:arg name="task_space" default="true"/>
+  <xacro:arg name="gripper" default="false"/>
+  <xacro:arg name="gripper_backend" default="rb_dynamixel"/>
+  <xacro:arg name="gripper_device" default="/dev/rby1_gripper"/>
 
   <xacro:include filename="$(find rby1_description)/urdf/rby1m/v$(arg version)/model.xacro"/>
   <xacro:include filename="$(find rby1_description)/urdf/rby1.ros2_control.xacro"/>
+  <xacro:include filename="$(find rby1_description)/urdf/rby1_gripper.ros2_control.xacro"/>
 
   <xacro:rby1m_ros2_control
     robot_ip="$(arg robot_ip)"
     use_mock_hardware="$(arg use_mock_hardware)"
-    auto_reconnect="$(arg auto_reconnect)"
-    read_timeout_sec="$(arg read_timeout_sec)"
-    connect_timeout_sec="$(arg connect_timeout_sec)"/>
+    backend="$(arg backend)"
+    auto_enable="$(arg auto_enable)"
+    command_rate="$(arg command_rate)"
+    state_rate="$(arg state_rate)"
+    impedance="$(arg impedance)"
+    task_space="$(arg task_space)"/>
+
+  <xacro:if value="$(arg gripper)">
+    <xacro:rby1_gripper_ros2_control
+      robot_ip="$(arg robot_ip)"
+      model="m"
+      use_mock_hardware="$(arg use_mock_hardware)"
+      backend="$(arg gripper_backend)"
+      device="$(arg gripper_device)"/>
+  </xacro:if>
 </robot>

@@ -1,0 +1,63 @@
+<?xml version="1.0"?>
+<!--
+  ros2_control description of the RB-Y1 grippers (one motor per gripper drives both fingers).
+
+  The RB gripper's two Dynamixel motors are on the UPC's serial port (/dev/rby1_gripper), so the
+  controller manager that loads this block must run on the UPC. gripper_finger_<r|l>2 mirror
+  finger 1 and only carry state.
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <xacro:macro name="rby1_gripper_finger" params="name mirror_of:=''">
+    <joint name="${name}">
+      <xacro:if value="${mirror_of == ''}">
+        <command_interface name="position"/>
+      </xacro:if>
+      <xacro:unless value="${mirror_of == ''}">
+        <param name="mirror_of">${mirror_of}</param>
+      </xacro:unless>
+      <state_interface name="position">
+        <param name="initial_value">0.0</param>
+      </state_interface>
+      <state_interface name="velocity"/>
+      <state_interface name="effort"/>
+    </joint>
+  </xacro:macro>
+
+  <!--
+    backend: rb_dynamixel (RB gripper on the UPC serial port), robotiq_flange (Robotiq on the tool
+    flange via the robot's GripperCommandService) or fake.
+  -->
+  <xacro:macro name="rby1_gripper_ros2_control"
+    params="robot_ip model use_mock_hardware backend:=rb_dynamixel device:=/dev/rby1_gripper
+            right_id:=0 left_id:=1 tool_flange_voltage:=12 calibrate:=true
+            open_position:=-0.05 closed_position:=0.0 closed_at:=min current_limit:=0.5
+            name:=RBY1Gripper">
+    <ros2_control name="${name}" type="system">
+      <hardware>
+        <xacro:if value="${use_mock_hardware}">
+          <plugin>mock_components/GenericSystem</plugin>
+        </xacro:if>
+        <xacro:unless value="${use_mock_hardware}">
+          <plugin>rby1_gripper_hardware/Rby1GripperSystem</plugin>
+          <param name="backend">${backend}</param>
+          <param name="device">${device}</param>
+          <param name="robot_ip">${robot_ip}</param>
+          <param name="model">${model}</param>
+          <param name="right_id">${right_id}</param>
+          <param name="left_id">${left_id}</param>
+          <param name="tool_flange_voltage">${tool_flange_voltage}</param>
+          <param name="calibrate">${calibrate}</param>
+          <param name="open_position">${open_position}</param>
+          <param name="closed_position">${closed_position}</param>
+          <param name="closed_at">${closed_at}</param>
+          <param name="current_limit">${current_limit}</param>
+        </xacro:unless>
+      </hardware>
+      <xacro:rby1_gripper_finger name="gripper_finger_r1"/>
+      <xacro:rby1_gripper_finger name="gripper_finger_r2" mirror_of="gripper_finger_r1"/>
+      <xacro:rby1_gripper_finger name="gripper_finger_l1"/>
+      <xacro:rby1_gripper_finger name="gripper_finger_l2" mirror_of="gripper_finger_l1"/>
+    </ros2_control>
+  </xacro:macro>
+</robot>
