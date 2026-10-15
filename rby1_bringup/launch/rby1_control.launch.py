@@ -1,123 +1,138 @@
+"""Bring up the RB-Y1 ros2_control driver.
+
+Starts robot_state_publisher, the controller manager with the RB-Y1 hardware interface (and the
+gripper hardware if gripper:=true), joint_state_broadcaster, every RB-Y1 controller loaded
+inactive, and the robot manager. Controllers listed in ``activate_controllers`` are activated.
+
+Examples:
+  ros2 launch rby1_bringup rby1_control.launch.py robot_ip:=192.168.30.1:50051 model:=a
+  ros2 launch rby1_bringup rby1_control.launch.py backend:=fake model:=a     # no robot needed
+  ros2 launch rby1_bringup rby1_control.launch.py activate_controllers:="right_arm_impedance_controller"
+"""
+
+import yaml
+
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, OpaqueFunction
 from launch.conditions import IfCondition
-from launch.substitutions import Command, LaunchConfiguration, PathJoinSubstitution
+from launch.substitutions import Command, FindExecutable, LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 from launch_ros.substitutions import FindPackageShare
-
+from ament_index_python.packages import get_package_share_directory
 
 SUPPORTED_VERSIONS = {
     "a": ("1.0", "1.1", "1.2"),
     "m": ("1.0", "1.1", "1.2", "1.3"),
 }
 DEFAULT_VERSION = "1.2"
+GRIPPER_CONTROLLERS = ("right_gripper_controller", "left_gripper_controller")
 
 
 def _truthy(value: str) -> bool:
     return value.strip().lower() in ("true", "1", "yes", "on")
 
 
-def _resolve_model_and_version(
-    context, robot_ip: str, use_mock_hardware: bool, connect_timeout_sec: float
-):
+def _resolve_model_and_version(context, robot_ip, probe_allowed, connect_timeout_sec):
     model_arg = LaunchConfiguration("model").perform(context).strip().lower()
     version_arg = LaunchConfiguration("version").perform(context).strip().lower()
-
     if model_arg not in ("a", "m", "ub", "auto"):
         raise RuntimeError("model must be 'a', 'm', 'ub', or 'auto'")
 
-    needs_probe = (model_arg == "auto" or version_arg == "auto") and not use_mock_hardware
-
-    probed_model = None
-    probed_version = None
-    if needs_probe:
+    probed_model = probed_version = None
+    if (model_arg == "auto" or version_arg == "auto") and probe_allowed:
         from rby1_bringup.model_probe import detect_model_and_version
 
         probed_model, probed_version = detect_model_and_version(robot_ip, connect_timeout_sec)
-    elif use_mock_hardware and (model_arg == "auto" or version_arg == "auto"):
-        print("[rby1_bringup] use_mock_hardware is true; auto values resolve to defaults (probe skipped).")
 
-    if model_arg == "auto":
-        model = probed_model if probed_model is not None else "a"
-    else:
-        model = model_arg
-
+    model = (probed_model or "a") if model_arg == "auto" else model_arg
     if model == "ub":
-        version = ""  # not used by ub xacro
-    elif version_arg == "auto":
-        supported = SUPPORTED_VERSIONS.get(model, ())
-        if probed_version is not None and probed_version in supported:
-            version = probed_version
-        else:
-            if probed_version is not None:
-                print(
-                    f"[rby1_bringup] WARNING: probed version '{probed_version}' is not in "
-                    f"supported versions {supported} for model '{model}'; "
-                    f"falling back to default '{DEFAULT_VERSION}'."
-                )
-            version = DEFAULT_VERSION
-    else:
-        version = version_arg
+        return model, ""
+    if version_arg != "auto":
+        return model, version_arg
+    supported = SUPPORTED_VERSIONS.get(model, ())
+    if probed_version in supported:
+        return model, probed_version
+    if probed_version is not None:
+        print(
+            f"[rby1_bringup] WARNING: probed version '{probed_version}' is not one of {supported} "
+            f"for model '{model}'; using {DEFAULT_VERSION}."
+        )
+    return model, DEFAULT_VERSION
 
-    return model, version
+
+def _controller_names(*files):
+    names = []
+    for path in files:
+        with open(path, "r", encoding="utf-8") as stream:
+            data = yaml.safe_load(stream) or {}
+        params = data.get("controller_manager", {}).get("ros__parameters", {})
+        names += [k for k, v in params.items() if isinstance(v, dict) and "type" in v]
+    return names
 
 
 def launch_setup(context, *args, **kwargs):
     robot_ip = LaunchConfiguration("robot_ip").perform(context)
-    use_mock_hardware_str = LaunchConfiguration("use_mock_hardware").perform(context)
-    use_mock_hardware_bool = _truthy(use_mock_hardware_str)
-    connect_timeout_sec_str = LaunchConfiguration("connect_timeout_sec").perform(context)
+    use_mock = _truthy(LaunchConfiguration("use_mock_hardware").perform(context))
+    backend = LaunchConfiguration("backend").perform(context)
+    gripper = _truthy(LaunchConfiguration("gripper").perform(context))
     try:
-        connect_timeout_sec_val = float(connect_timeout_sec_str)
+        connect_timeout = float(LaunchConfiguration("connect_timeout_sec").perform(context))
     except ValueError:
-        connect_timeout_sec_val = 3.0
-
+        connect_timeout = 3.0
     model, version = _resolve_model_and_version(
-        context, robot_ip, use_mock_hardware_bool, connect_timeout_sec_val
+        context, robot_ip, probe_allowed=not use_mock and backend == "sdk", connect_timeout_sec=connect_timeout
     )
 
-    use_mock_hardware = LaunchConfiguration("use_mock_hardware")
-    auto_reconnect = LaunchConfiguration("auto_reconnect")
-    read_timeout_sec = LaunchConfiguration("read_timeout_sec")
-    connect_timeout_sec = LaunchConfiguration("connect_timeout_sec")
-
-    robot_description_file = PathJoinSubstitution(
-        [FindPackageShare("rby1_description"), "urdf", f"rby1{model}.urdf.xacro"]
-    )
-    xacro_cmd = [
-        "xacro ",
-        robot_description_file,
-        " robot_ip:=",
-        robot_ip,
-        " use_mock_hardware:=",
-        use_mock_hardware,
-        " auto_reconnect:=",
-        auto_reconnect,
-        " read_timeout_sec:=",
-        read_timeout_sec,
-        " connect_timeout_sec:=",
-        connect_timeout_sec,
-    ]
+    xacro_file = PathJoinSubstitution([FindPackageShare("rby1_description"), "urdf", f"rby1{model}.urdf.xacro"])
+    xacro_args = {
+        "robot_ip": robot_ip,
+        "use_mock_hardware": str(use_mock).lower(),
+        "backend": backend,
+        "auto_enable": LaunchConfiguration("auto_enable").perform(context),
+        "command_rate": LaunchConfiguration("command_rate").perform(context),
+        "state_rate": LaunchConfiguration("state_rate").perform(context),
+        "impedance": LaunchConfiguration("impedance").perform(context),
+        "task_space": LaunchConfiguration("task_space").perform(context),
+        "gripper": str(gripper).lower(),
+        "gripper_backend": LaunchConfiguration("gripper_backend").perform(context),
+        "gripper_device": LaunchConfiguration("gripper_device").perform(context),
+    }
     if model != "ub":
-        xacro_cmd += [" version:=", version]
-    robot_description = Command(xacro_cmd)
+        xacro_args["version"] = version
+    command = [FindExecutable(name="xacro"), " ", xacro_file]
+    for key, value in xacro_args.items():
+        command += [f" {key}:=", value]
+    robot_description = {"robot_description": ParameterValue(Command(command), value_type=str)}
 
-    controllers_file = PathJoinSubstitution(
-        [FindPackageShare("rby1_bringup"), "config", "rby1_controllers.yaml"]
-    )
+    share = get_package_share_directory("rby1_bringup")
+    common_yaml = f"{share}/config/controllers_common.yaml"
+    model_yaml = f"{share}/config/controllers_{model}.yaml"
+    update_rate = {"update_rate": int(LaunchConfiguration("update_rate").perform(context))}
+
+    names = [n for n in _controller_names(common_yaml, model_yaml) if n != "joint_state_broadcaster"]
+    if not gripper:
+        names = [n for n in names if n not in GRIPPER_CONTROLLERS]
+    if not _truthy(LaunchConfiguration("task_space").perform(context)):
+        names = [n for n in names if not any(k in n for k in ("cartesian", "pose_controller", "optimal_control"))]
+    active = LaunchConfiguration("activate_controllers").perform(context).split()
+    unknown = [n for n in active if n not in names]
+    if unknown:
+        raise RuntimeError(f"activate_controllers: unknown controllers {unknown}; available: {names}")
+    inactive = [n for n in names if n not in active]
 
     nodes = [
         Node(
             package="robot_state_publisher",
             executable="robot_state_publisher",
             output="screen",
-            parameters=[{"robot_description": robot_description}],
+            parameters=[robot_description],
         ),
         Node(
             package="controller_manager",
             executable="ros2_control_node",
             output="screen",
-            parameters=[{"robot_description": robot_description}, controllers_file],
+            parameters=[robot_description, common_yaml, model_yaml, update_rate],
         ),
         Node(
             package="controller_manager",
@@ -125,6 +140,26 @@ def launch_setup(context, *args, **kwargs):
             arguments=["joint_state_broadcaster", "--controller-manager", "/controller_manager"],
             output="screen",
         ),
+    ]
+    if inactive:
+        nodes.append(
+            Node(
+                package="controller_manager",
+                executable="spawner",
+                arguments=inactive + ["--inactive", "--controller-manager", "/controller_manager"],
+                output="screen",
+            )
+        )
+    if active:
+        nodes.append(
+            Node(
+                package="controller_manager",
+                executable="spawner",
+                arguments=active + ["--controller-manager", "/controller_manager"],
+                output="screen",
+            )
+        )
+    nodes.append(
         Node(
             package="rby1_robot_manager",
             executable="rby1_robot_manager_node",
@@ -134,49 +169,52 @@ def launch_setup(context, *args, **kwargs):
                 {
                     "robot_ip": robot_ip,
                     "model": model,
-                    "auto_reconnect": auto_reconnect,
-                    "connect_timeout_sec": connect_timeout_sec,
-                    "read_timeout_sec": read_timeout_sec,
+                    "auto_reconnect": True,
+                    "connect_timeout_sec": connect_timeout,
                     "status_period_sec": LaunchConfiguration("status_period_sec"),
                     "publish_status": LaunchConfiguration("publish_status"),
                     "publish_battery_state": LaunchConfiguration("publish_battery_state"),
                     "publish_tool_flange_state": LaunchConfiguration("publish_tool_flange_state"),
                 }
             ],
-            condition=IfCondition(LaunchConfiguration("launch_robot_manager")),
-        ),
-    ]
-
+            condition=IfCondition(
+                "true"
+                if _truthy(LaunchConfiguration("launch_robot_manager").perform(context))
+                and not use_mock
+                and backend == "sdk"
+                else "false"
+            ),
+        )
+    )
     return nodes
 
 
 def generate_launch_description():
+    args = [
+        ("model", "auto", "RB-Y1 model: a, m, ub, or auto (detect via rby1-sdk)"),
+        ("version", "auto", "Model version (a: 1.0/1.1/1.2, m: 1.0-1.3), or auto; ignored for ub"),
+        ("robot_ip", "192.168.30.1:50051", "RB-Y1 gRPC address"),
+        ("robot_namespace", "rby1", "Namespace of the robot manager"),
+        ("use_mock_hardware", "false", "Use mock_components/GenericSystem instead of the RB-Y1 hardware"),
+        ("backend", "sdk", "Hardware backend: sdk (robot or simulator core) or fake (in-memory robot)"),
+        ("auto_enable", "false", "Power on, servo on and enable the control manager on activation"),
+        ("update_rate", "100", "Controller manager update rate [Hz]"),
+        ("command_rate", "100", "Rate of the SDK command stream [Hz]"),
+        ("state_rate", "200", "Rate of the SDK state stream [Hz]"),
+        ("impedance", "true", "Export stiffness/damping_ratio/torque_limit interfaces"),
+        ("task_space", "true", "Export Cartesian/impedance/optimal-control gpios and load their controllers"),
+        ("gripper", "false", "Load the gripper hardware (must run on the UPC for the RB gripper)"),
+        ("gripper_backend", "rb_dynamixel", "Gripper backend: rb_dynamixel, robotiq_flange or fake"),
+        ("gripper_device", "/dev/rby1_gripper", "Serial device of the RB gripper"),
+        ("activate_controllers", "", "Space-separated controllers to activate at startup"),
+        ("connect_timeout_sec", "3.0", "Connection timeout for model detection [s]"),
+        ("launch_robot_manager", "true", "Start rby1_robot_manager (sdk backend only)"),
+        ("status_period_sec", "0.02", "Robot manager status period [s]"),
+        ("publish_status", "true", "Robot manager: publish robot_state"),
+        ("publish_battery_state", "true", "Robot manager: publish battery_state"),
+        ("publish_tool_flange_state", "true", "Robot manager: publish tool flange state"),
+    ]
     return LaunchDescription(
-        [
-            DeclareLaunchArgument(
-                "model",
-                default_value="auto",
-                description="RBY1 model: 'a', 'm', 'ub', or 'auto' to detect via rby1-sdk",
-            ),
-            DeclareLaunchArgument(
-                "version",
-                default_value="auto",
-                description=(
-                    "Model version: 'auto' to detect via rby1-sdk, or one of "
-                    "a:1.0/1.1/1.2 m:1.0/1.1/1.2/1.3 (ignored for ub)"
-                ),
-            ),
-            DeclareLaunchArgument("robot_ip", default_value="192.168.30.1:50051"),
-            DeclareLaunchArgument("robot_namespace", default_value="rby1"),
-            DeclareLaunchArgument("use_mock_hardware", default_value="false"),
-            DeclareLaunchArgument("auto_reconnect", default_value="true"),
-            DeclareLaunchArgument("connect_timeout_sec", default_value="3.0"),
-            DeclareLaunchArgument("read_timeout_sec", default_value="0.5"),
-            DeclareLaunchArgument("status_period_sec", default_value="0.02"),
-            DeclareLaunchArgument("publish_status", default_value="true"),
-            DeclareLaunchArgument("publish_battery_state", default_value="true"),
-            DeclareLaunchArgument("publish_tool_flange_state", default_value="true"),
-            DeclareLaunchArgument("launch_robot_manager", default_value="true"),
-            OpaqueFunction(function=launch_setup),
-        ]
+        [DeclareLaunchArgument(name, default_value=default, description=desc) for name, default, desc in args]
+        + [OpaqueFunction(function=launch_setup)]
     )

@@ -1,0 +1,90 @@
+# RB-Y1 model A: torso and base controllers (load together with controllers_common.yaml).
+controller_manager:
+  ros__parameters:
+    torso_controller:
+      type: joint_trajectory_controller/JointTrajectoryController
+    torso_impedance_controller:
+      type: rby1_controllers/JointStreamController
+    torso_gravity_compensation_controller:
+      type: rby1_controllers/GravityCompensationController
+    torso_cartesian_controller:
+      type: rby1_controllers/TaskSpaceController
+    torso_impedance_pose_controller:
+      type: rby1_controllers/TaskSpaceController
+    torso_optimal_control_controller:
+      type: rby1_controllers/TaskSpaceController
+    base_velocity_controller:
+      type: rby1_controllers/BaseVelocityController
+    wheel_velocity_controller:
+      type: velocity_controllers/JointGroupVelocityController
+
+torso_controller:
+  ros__parameters:
+    joints:
+      - torso_0
+      - torso_1
+      - torso_2
+      - torso_3
+      - torso_4
+      - torso_5
+    command_interfaces:
+      - position
+    state_interfaces:
+      - position
+      - velocity
+    state_publish_rate: 50.0
+    action_monitor_rate: 20.0
+    allow_partial_joints_goal: false
+    constraints:
+      stopped_velocity_tolerance: 0.05
+      goal_time: 0.5
+
+torso_impedance_controller:
+  ros__parameters:
+    joints:
+      - torso_0
+      - torso_1
+      - torso_2
+      - torso_3
+      - torso_4
+      - torso_5
+    mode: impedance
+    command_timeout: 0.5
+    # Not identified on the robot yet; start stiff (the core adds gravity compensation).
+    stiffness: [5000.0]
+    damping_ratio: 1.0
+
+torso_gravity_compensation_controller:
+  ros__parameters:
+    gpio: torso_gravity_compensation
+
+torso_cartesian_controller:
+  ros__parameters:
+    gpio: torso_cartesian
+    ref_links: [base]
+
+torso_impedance_pose_controller:
+  ros__parameters:
+    gpio: torso_impedance
+    ref_links: [base]
+
+torso_optimal_control_controller:
+  ros__parameters:
+    gpio: torso_optimal_control
+    ref_links: [base]
+
+base_velocity_controller:
+  ros__parameters:
+    gpio: base_se2
+    status_gpio: rby1_status
+    cmd_vel_timeout: 0.5
+    publish_odom: true
+    publish_tf: false
+    odom_frame: odom
+    base_frame: base
+
+wheel_velocity_controller:
+  ros__parameters:
+    joints:
+      - right_wheel
+      - left_wheel

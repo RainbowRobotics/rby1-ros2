@@ -1,0 +1,265 @@
+# Controllers shared by every RB-Y1 model. The model file (controllers_<model>.yaml) adds the
+# torso, base and model-specific entries. Only joint_state_broadcaster is activated by default;
+# everything else is loaded inactive and switched with controller_manager/switch_controller.
+#
+# Which rby1-sdk controller runs is decided by the hardware from the claimed interfaces:
+#   *_controller (JTC)                 -> JointPositionCommand
+#   *_position_stream_controller       -> JointPositionCommand (JointState topic, Flexiv style)
+#   *_impedance_controller             -> JointImpedanceControlCommand (Isaac ROS impedance_controller)
+#   *_gravity_compensation_controller  -> GravityCompensationCommand
+#   *_cartesian_controller             -> CartesianCommand
+#   *_cartesian_impedance_controller   -> CartesianImpedanceControlCommand
+#   *_impedance_pose_controller        -> ImpedanceControlCommand
+#   body_optimal_control_controller    -> OptimalControlCommand
+controller_manager:
+  ros__parameters:
+    update_rate: 100
+
+    joint_state_broadcaster:
+      type: joint_state_broadcaster/JointStateBroadcaster
+
+    right_arm_controller:
+      type: joint_trajectory_controller/JointTrajectoryController
+    left_arm_controller:
+      type: joint_trajectory_controller/JointTrajectoryController
+    head_controller:
+      type: joint_trajectory_controller/JointTrajectoryController
+
+    right_arm_position_stream_controller:
+      type: rby1_controllers/JointStreamController
+    left_arm_position_stream_controller:
+      type: rby1_controllers/JointStreamController
+    right_arm_impedance_controller:
+      type: rby1_controllers/JointStreamController
+    left_arm_impedance_controller:
+      type: rby1_controllers/JointStreamController
+
+    right_arm_gravity_compensation_controller:
+      type: rby1_controllers/GravityCompensationController
+    left_arm_gravity_compensation_controller:
+      type: rby1_controllers/GravityCompensationController
+    body_gravity_compensation_controller:
+      type: rby1_controllers/GravityCompensationController
+
+    right_arm_cartesian_controller:
+      type: rby1_controllers/TaskSpaceController
+    left_arm_cartesian_controller:
+      type: rby1_controllers/TaskSpaceController
+    body_cartesian_controller:
+      type: rby1_controllers/TaskSpaceController
+    right_arm_cartesian_impedance_controller:
+      type: rby1_controllers/TaskSpaceController
+    left_arm_cartesian_impedance_controller:
+      type: rby1_controllers/TaskSpaceController
+    body_cartesian_impedance_controller:
+      type: rby1_controllers/TaskSpaceController
+    right_arm_impedance_pose_controller:
+      type: rby1_controllers/TaskSpaceController
+    left_arm_impedance_pose_controller:
+      type: rby1_controllers/TaskSpaceController
+    body_optimal_control_controller:
+      type: rby1_controllers/TaskSpaceController
+
+    right_gripper_controller:
+      type: position_controllers/GripperActionController
+    left_gripper_controller:
+      type: position_controllers/GripperActionController
+
+right_arm_controller:
+  ros__parameters:
+    joints:
+      - right_arm_0
+      - right_arm_1
+      - right_arm_2
+      - right_arm_3
+      - right_arm_4
+      - right_arm_5
+      - right_arm_6
+    command_interfaces:
+      - position
+    state_interfaces:
+      - position
+      - velocity
+    state_publish_rate: 50.0
+    action_monitor_rate: 20.0
+    allow_partial_joints_goal: false
+    constraints:
+      stopped_velocity_tolerance: 0.05
+      goal_time: 0.5
+
+left_arm_controller:
+  ros__parameters:
+    joints:
+      - left_arm_0
+      - left_arm_1
+      - left_arm_2
+      - left_arm_3
+      - left_arm_4
+      - left_arm_5
+      - left_arm_6
+    command_interfaces:
+      - position
+    state_interfaces:
+      - position
+      - velocity
+    state_publish_rate: 50.0
+    action_monitor_rate: 20.0
+    allow_partial_joints_goal: false
+    constraints:
+      stopped_velocity_tolerance: 0.05
+      goal_time: 0.5
+
+head_controller:
+  ros__parameters:
+    joints:
+      - head_0
+      - head_1
+    command_interfaces:
+      - position
+    state_interfaces:
+      - position
+      - velocity
+    state_publish_rate: 50.0
+    action_monitor_rate: 20.0
+    allow_partial_joints_goal: false
+    constraints:
+      stopped_velocity_tolerance: 0.05
+      goal_time: 0.5
+
+right_arm_position_stream_controller:
+  ros__parameters:
+    joints:
+      - right_arm_0
+      - right_arm_1
+      - right_arm_2
+      - right_arm_3
+      - right_arm_4
+      - right_arm_5
+      - right_arm_6
+    mode: position
+    command_timeout: 0.5
+
+left_arm_position_stream_controller:
+  ros__parameters:
+    joints:
+      - left_arm_0
+      - left_arm_1
+      - left_arm_2
+      - left_arm_3
+      - left_arm_4
+      - left_arm_5
+      - left_arm_6
+    mode: position
+    command_timeout: 0.5
+
+right_arm_impedance_controller:
+  ros__parameters:
+    joints:
+      - right_arm_0
+      - right_arm_1
+      - right_arm_2
+      - right_arm_3
+      - right_arm_4
+      - right_arm_5
+      - right_arm_6
+    mode: impedance
+    command_timeout: 0.5
+    # Commanded joint stiffness [N*m/rad]; the robot realizes 1.3-1.45x (1.06x wrist roll).
+    stiffness: [900.0, 900.0, 900.0, 500.0, 500.0, 500.0, 1000.0]
+    damping_ratio: 1.0
+    torque_limit: [70.0, 70.0, 70.0, 40.0, 10.0, 10.0, 8.0]
+
+left_arm_impedance_controller:
+  ros__parameters:
+    joints:
+      - left_arm_0
+      - left_arm_1
+      - left_arm_2
+      - left_arm_3
+      - left_arm_4
+      - left_arm_5
+      - left_arm_6
+    mode: impedance
+    command_timeout: 0.5
+    # Commanded joint stiffness [N*m/rad]; the robot realizes 1.3-1.45x (1.06x wrist roll).
+    stiffness: [900.0, 900.0, 900.0, 500.0, 500.0, 500.0, 1000.0]
+    damping_ratio: 1.0
+    torque_limit: [70.0, 70.0, 70.0, 40.0, 10.0, 10.0, 8.0]
+
+right_arm_gravity_compensation_controller:
+  ros__parameters:
+    gpio: right_arm_gravity_compensation
+
+left_arm_gravity_compensation_controller:
+  ros__parameters:
+    gpio: left_arm_gravity_compensation
+
+body_gravity_compensation_controller:
+  ros__parameters:
+    gpio: body_gravity_compensation
+
+right_arm_cartesian_controller:
+  ros__parameters:
+    gpio: right_arm_cartesian
+    ref_links: [base]
+
+left_arm_cartesian_controller:
+  ros__parameters:
+    gpio: left_arm_cartesian
+    ref_links: [base]
+
+body_cartesian_controller:
+  ros__parameters:
+    gpio: body_cartesian
+    ref_links: [base, link_torso_5, link_torso_5]
+
+right_arm_cartesian_impedance_controller:
+  ros__parameters:
+    gpio: right_arm_cartesian_impedance
+    ref_links: [base]
+
+left_arm_cartesian_impedance_controller:
+  ros__parameters:
+    gpio: left_arm_cartesian_impedance
+    ref_links: [base]
+
+body_cartesian_impedance_controller:
+  ros__parameters:
+    gpio: body_cartesian_impedance
+    ref_links: [base, link_torso_5, link_torso_5]
+
+right_arm_impedance_pose_controller:
+  ros__parameters:
+    gpio: right_arm_impedance
+    ref_links: [base]
+
+left_arm_impedance_pose_controller:
+  ros__parameters:
+    gpio: left_arm_impedance
+    ref_links: [base]
+
+body_optimal_control_controller:
+  ros__parameters:
+    gpio: body_optimal_control
+    ref_links: [base, base, base]
+    center_of_mass: true
+
+right_gripper_controller:
+  ros__parameters:
+    joint: gripper_finger_r1
+    action_monitor_rate: 20.0
+    goal_tolerance: 0.002
+    max_effort: 0.0
+    allow_stalling: true
+    stall_velocity_threshold: 0.001
+    stall_timeout: 1.0
+
+left_gripper_controller:
+  ros__parameters:
+    joint: gripper_finger_l1
+    action_monitor_rate: 20.0
+    goal_tolerance: 0.002
+    max_effort: 0.0
+    allow_stalling: true
+    stall_velocity_threshold: 0.001
+    stall_timeout: 1.0
