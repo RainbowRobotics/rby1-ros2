@@ -13,9 +13,9 @@ from launch_ros.substitutions import FindPackageShare
 
 
 def generate_launch_description():
-    passthrough = ["model", "version", "use_mock_hardware", "activate_controllers", "gripper"]
+    passthrough = ["model", "version", "use_mock_hardware", "activate_controllers", "gripper", "realtime"]
     defaults = {"model": "a", "version": "1.2", "use_mock_hardware": "false", "activate_controllers": "",
-                "gripper": "false"}
+                "gripper": "false", "realtime": "false"}
     return LaunchDescription(
         [DeclareLaunchArgument(name, default_value=defaults[name]) for name in passthrough]
         + [

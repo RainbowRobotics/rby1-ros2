@@ -23,6 +23,7 @@ controller_interface::CallbackReturn JointStreamController::on_init()
     auto_declare<double>("damping_ratio", 1.0);
     auto_declare<std::vector<double>>("torque_limit", {});
     auto_declare<double>("command_timeout", 0.5);
+    auto_declare<double>("feedback_gain", 10.0);
   } catch (const std::exception & e) {
     RCLCPP_ERROR(get_node()->get_logger(), "Failed to declare parameters: %s", e.what());
     return CallbackReturn::ERROR;
@@ -35,6 +36,10 @@ InterfaceConfiguration JointStreamController::command_interface_configuration() 
   InterfaceConfiguration config{interface_configuration_type::INDIVIDUAL, {}};
   for (const auto & joint : joints_) {
     config.names.push_back(joint + "/position");
+    if (realtime_) {
+      config.names.push_back(joint + "/effort");
+      config.names.push_back(joint + "/feedback_gain");
+    }
     if (impedance_) {
       config.names.push_back(joint + "/stiffness");
       config.names.push_back(joint + "/damping_ratio");
@@ -100,6 +105,15 @@ rcl_interfaces::msg::SetParametersResult JointStreamController::on_parameters(
       result.reason = "'" + p.get_name() + "' can only change while the controller is unconfigured";
       return result;
     }
+    if (p.get_name() == "feedback_gain") {
+      const double g = p.as_double();
+      if (!(g >= 0.0 && g <= 10.0)) {
+        result.successful = false;
+        result.reason = "feedback_gain must be in [0, 10]";
+        return result;
+      }
+      feedback_gain_ = g;
+    }
     gains_changed = gains_changed || p.get_name() == "stiffness" || p.get_name() == "damping_ratio" ||
       p.get_name() == "torque_limit";
   }
@@ -143,11 +157,14 @@ CallbackReturn JointStreamController::on_configure(const rclcpp_lifecycle::State
     RCLCPP_ERROR(get_node()->get_logger(), "'joints' is empty");
     return CallbackReturn::ERROR;
   }
-  if (mode != "position" && mode != "impedance") {
-    RCLCPP_ERROR(get_node()->get_logger(), "'mode' must be 'position' or 'impedance'");
+  if (mode != "position" && mode != "impedance" && mode != "realtime") {
+    RCLCPP_ERROR(get_node()->get_logger(), "'mode' must be 'position', 'impedance' or 'realtime'");
     return CallbackReturn::ERROR;
   }
   impedance_ = mode == "impedance";
+  realtime_ = mode == "realtime";
+  feedback_gain_ = get_node()->get_parameter("feedback_gain").as_double();
+  effort_buffer_.writeFromNonRT(nullptr);
   use_torque_limit_ = impedance_ && !get_node()->get_parameter("torque_limit").as_double_array().empty();
   command_timeout_ = get_node()->get_parameter("command_timeout").as_double();
 
@@ -188,6 +205,16 @@ CallbackReturn JointStreamController::on_configure(const rclcpp_lifecycle::State
         return;
       }
       target_buffer_.writeFromNonRT(target);
+      if (realtime_ && msg->effort.size() == msg->name.size()) {
+        auto effort = std::make_shared<std::vector<double>>(n, 0.0);
+        for (size_t k = 0; k < msg->name.size(); ++k) {
+          const auto it = index.find(msg->name[k]);
+          if (it != index.end()) {
+            (*effort)[it->second] = msg->effort[k];
+          }
+        }
+        effort_buffer_.writeFromNonRT(effort);
+      }
       last_command_ns_ = now_ns();
     });
   array_sub_ = get_node()->create_subscription<std_msgs::msg::Float64MultiArray>(
@@ -204,7 +231,7 @@ CallbackReturn JointStreamController::on_configure(const rclcpp_lifecycle::State
   parameter_handle_ = get_node()->add_on_set_parameters_callback(
     [this](const std::vector<rclcpp::Parameter> & p) {return on_parameters(p);});
 
-  RCLCPP_INFO(get_node()->get_logger(), "%zu joints, %s mode", n, impedance_ ? "impedance" : "position");
+  RCLCPP_INFO(get_node()->get_logger(), "%zu joints, %s mode", n, mode.c_str());
   return CallbackReturn::SUCCESS;
 }
 
@@ -216,6 +243,9 @@ CallbackReturn JointStreamController::on_activate(const rclcpp_lifecycle::State 
   damping_cmd_.assign(n, -1);
   torque_cmd_.assign(n, -1);
   position_state_.assign(n, -1);
+  effort_cmd_.assign(n, -1);
+  gain_cmd_.assign(n, -1);
+  effort_.assign(n, 0.0);
   target_.assign(n, std::numeric_limits<double>::quiet_NaN());
   for (size_t i = 0; i < n; ++i) {
     position_cmd_[i] = find_interface(command_interfaces_, joints_[i] + "/position");
@@ -227,7 +257,13 @@ CallbackReturn JointStreamController::on_activate(const rclcpp_lifecycle::State 
         torque_cmd_[i] = find_interface(command_interfaces_, joints_[i] + "/torque_limit");
       }
     }
-    if (position_cmd_[i] < 0 || position_state_[i] < 0 || (impedance_ && (stiffness_cmd_[i] < 0 || damping_cmd_[i] < 0))) {
+    if (realtime_) {
+      effort_cmd_[i] = find_interface(command_interfaces_, joints_[i] + "/effort");
+      gain_cmd_[i] = find_interface(command_interfaces_, joints_[i] + "/feedback_gain");
+    }
+    if (position_cmd_[i] < 0 || position_state_[i] < 0 || (impedance_ && (stiffness_cmd_[i] < 0 || damping_cmd_[i] < 0)) ||
+      (realtime_ && (effort_cmd_[i] < 0 || gain_cmd_[i] < 0)))
+    {
       RCLCPP_ERROR(get_node()->get_logger(), "Missing interfaces for joint '%s'", joints_[i].c_str());
       return CallbackReturn::ERROR;
     }
@@ -262,8 +298,19 @@ controller_interface::return_type JointStreamController::update(const rclcpp::Ti
       "No joint command for more than %.2f s; holding the last target", command_timeout_);
   }
   const auto gains = *gains_buffer_.readFromRT();
+  if (realtime_) {
+    const auto effort = *effort_buffer_.readFromRT();
+    if (effort) {
+      effort_ = *effort;
+    }
+  }
+  const double feedback_gain = feedback_gain_.load();
   for (size_t i = 0; i < target_.size(); ++i) {
     write_value(command_interfaces_[position_cmd_[i]], target_[i]);
+    if (realtime_) {
+      write_value(command_interfaces_[effort_cmd_[i]], effort_[i]);
+      write_value(command_interfaces_[gain_cmd_[i]], feedback_gain);
+    }
     if (impedance_) {
       write_value(command_interfaces_[stiffness_cmd_[i]], gains->stiffness[i]);
       write_value(command_interfaces_[damping_cmd_[i]], gains->damping_ratio);

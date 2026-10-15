@@ -14,6 +14,8 @@
   <xacro:arg name="state_rate" default="200"/>
   <xacro:arg name="impedance" default="true"/>
   <xacro:arg name="task_space" default="true"/>
+  <!-- SDK real-time control (UDP, 2 ms): exports effort and feedback_gain command interfaces -->
+  <xacro:arg name="realtime" default="false"/>
   <xacro:arg name="gripper" default="false"/>
   <xacro:arg name="gripper_backend" default="rb_dynamixel"/>
   <xacro:arg name="gripper_device" default="/dev/rby1_gripper"/>
@@ -30,7 +32,8 @@
     command_rate="$(arg command_rate)"
     state_rate="$(arg state_rate)"
     impedance="$(arg impedance)"
-    task_space="$(arg task_space)"/>
+    task_space="$(arg task_space)"
+    realtime="$(arg realtime)"/>
 
   <xacro:if value="$(arg gripper)">
     <xacro:rby1_gripper_ros2_control

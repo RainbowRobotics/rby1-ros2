@@ -4,7 +4,8 @@
 
 - Every rby1-sdk motion controller is available as a `ros2_control` command mode: joint position,
   joint group position, joint impedance, gravity compensation, joint and SE2 velocity, Cartesian,
-  Cartesian impedance, impedance and optimal control ([docs/SDK_COVERAGE.md](docs/SDK_COVERAGE.md)).
+  Cartesian impedance, impedance, optimal control and real-time control (`realtime:=true`)
+  ([docs/SDK_COVERAGE.md](docs/SDK_COVERAGE.md)).
 - The hardware picks the SDK controller of each body part (torso, right arm, left arm, head,
   mobile base, whole body) from the interfaces the active controller claims, so standard controllers
   (`joint_trajectory_controller`, `forward_command_controller`, `GripperActionController`) and the
@@ -98,6 +99,7 @@ services, or `auto_enable:=true`). See [docs/SAFETY.md](docs/SAFETY.md) before m
 | `<part>_cartesian_impedance_controller` | `rby1_controllers/TaskSpaceController` | CartesianImpedanceControlCommand |
 | `<part>_impedance_pose_controller` | `rby1_controllers/TaskSpaceController` | ImpedanceControlCommand |
 | `<part>_optimal_control_controller` | `rby1_controllers/TaskSpaceController` | OptimalControlCommand |
+| `body_realtime_controller` (`realtime:=true`) | `rby1_controllers/JointStreamController` (realtime) | RealTimeControl (`Robot::Control`) |
 | `<side>_gripper_controller` | `position_controllers/GripperActionController` | RB gripper (Dynamixel) |
 
 Stop and jog are whole-robot commands and live in the robot manager (`/rby1/stop`, `/rby1/jog`).

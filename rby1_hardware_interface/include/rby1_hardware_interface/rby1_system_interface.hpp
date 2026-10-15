@@ -84,6 +84,8 @@ private:
   void on_state(const StateSample & sample);
   bool copy_state();
   void stream_loop();
+  void realtime_tick(const RealtimeState & state, RealtimeInput & input);
+  bool start_realtime();
   void stop_streaming() noexcept;
   void set_fatal(const std::string & message);
   void update_status_values();
@@ -153,6 +155,20 @@ private:
   std::mutex fatal_mutex_;
   std::thread stream_thread_;
   bool active_hw_{false};
+
+  // Real-time loop (backend thread at the robot's control period).
+  std::vector<double> rt_values_;            // copy of the conditioned slot
+  std::vector<double> rt_sent_;              // last sent position target, robot order
+  std::vector<int> rt_entry_of_robot_;       // JointEntry index per robot joint, -1 if none
+  const CommandMode * rt_mode_{nullptr};
+  std::vector<bool> rt_claimed_;             // JointEntry claimed by the real-time mode
+  double rt_last_t_{-1.0};
+  int rt_stale_{0};
+  bool rt_initialized_{false};
+  double rt_max_step_{0.004};
+  double rt_max_tracking_error_{0.15};
+  int rt_stale_ticks_{25};
+  int rt_priority_{1};
 };
 
 }  // namespace rby1_hardware_interface

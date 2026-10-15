@@ -94,6 +94,7 @@ def launch_setup(context, *args, **kwargs):
         "state_rate": LaunchConfiguration("state_rate").perform(context),
         "impedance": LaunchConfiguration("impedance").perform(context),
         "task_space": LaunchConfiguration("task_space").perform(context),
+        "realtime": LaunchConfiguration("realtime").perform(context),
         "gripper": str(gripper).lower(),
         "gripper_backend": LaunchConfiguration("gripper_backend").perform(context),
         "gripper_device": LaunchConfiguration("gripper_device").perform(context),
@@ -115,6 +116,8 @@ def launch_setup(context, *args, **kwargs):
         names = [n for n in names if n not in GRIPPER_CONTROLLERS]
     if not _truthy(LaunchConfiguration("task_space").perform(context)):
         names = [n for n in names if not any(k in n for k in ("cartesian", "pose_controller", "optimal_control"))]
+    if not _truthy(LaunchConfiguration("realtime").perform(context)):
+        names = [n for n in names if "realtime" not in n]
     active = LaunchConfiguration("activate_controllers").perform(context).split()
     unknown = [n for n in active if n not in names]
     if unknown:
@@ -203,6 +206,7 @@ def generate_launch_description():
         ("state_rate", "200", "Rate of the SDK state stream [Hz]"),
         ("impedance", "true", "Export stiffness/damping_ratio/torque_limit interfaces"),
         ("task_space", "true", "Export Cartesian/impedance/optimal-control gpios and load their controllers"),
+        ("realtime", "false", "Export effort/feedback_gain and load body_realtime_controller (SDK real-time control)"),
         ("gripper", "false", "Load the gripper hardware (must run on the UPC for the RB gripper)"),
         ("gripper_backend", "rb_dynamixel", "Gripper backend: rb_dynamixel, robotiq_flange or fake"),
         ("gripper_device", "/dev/rby1_gripper", "Serial device of the RB gripper"),

@@ -14,6 +14,8 @@ power, servo or enable the robot unless `auto_enable:=true`.
 | Cartesian targets: normalized quaternion, `max_linear_step` | 0.05 m | |
 | `control_hold_time` on every command | 1 s | the robot stops executing when the driver stops sending |
 | Stale state (`state_timeout`), control manager fault, emergency stop | 0.1 s | stop streaming, hardware error |
+| Real-time loop: target change per 2 ms tick | 0.004 rad | 2 rad/s; the value the system-identification tool used on the robot |
+| Real-time loop: target within `realtime.max_tracking_error`, feedback gain 0-10, feedforward within URDF effort | 0.15 rad | |
 
 The robot manager refuses power or servo off while a command is executing (unless
 `allow_power_off_while_executing`), and jog while a command executes.

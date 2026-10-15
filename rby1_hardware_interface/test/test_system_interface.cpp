@@ -36,7 +36,7 @@ std::vector<std::string> joint_names()
   return out;
 }
 
-std::string make_urdf()
+std::string make_urdf(bool realtime = false)
 {
   std::ostringstream u;
   u << "<?xml version=\"1.0\"?><robot name=\"rby1a\"><link name=\"base\"/>";
@@ -65,6 +65,9 @@ std::string make_urdf()
         u << "<command_interface name=\"stiffness\"/><command_interface name=\"damping_ratio\"/>"
           << "<command_interface name=\"torque_limit\"/>";
       }
+      if (realtime) {
+        u << "<command_interface name=\"effort\"/><command_interface name=\"feedback_gain\"/>";
+      }
     }
     u << "<state_interface name=\"position\"/><state_interface name=\"velocity\"/>"
       << "<state_interface name=\"effort\"/></joint>";
@@ -84,9 +87,11 @@ std::string make_urdf()
 class SystemInterfaceTest : public ::testing::Test
 {
 protected:
+  virtual bool realtime() const {return false;}
+
   void SetUp() override
   {
-    const auto infos = hardware_interface::parse_control_resources_from_urdf(make_urdf());
+    const auto infos = hardware_interface::parse_control_resources_from_urdf(make_urdf(realtime()));
     ASSERT_EQ(infos.size(), 1u);
     info_ = infos[0];
     backend_ = std::make_shared<FakeRobotBackend>("a");
@@ -268,6 +273,62 @@ TEST_F(SystemInterfaceTest, FaultStopsTheStream)
   backend_->set_control_manager(ControlManagerStatus::kMajorFault);
   run_for(200ms);
   EXPECT_EQ(cycle(), hardware_interface::return_type::ERROR);
+}
+
+class RealtimeTest : public SystemInterfaceTest
+{
+protected:
+  bool realtime() const override {return true;}
+
+  std::vector<std::string> body(const std::vector<std::string> & ifs)
+  {
+    std::vector<std::string> out;
+    for (const auto & j : joint_names()) {
+      if (j.find("wheel") != std::string::npos || j.find("head") != std::string::npos) {
+        continue;
+      }
+      for (const auto & f : ifs) {
+        out.push_back(j + "/" + f);
+      }
+    }
+    return out;
+  }
+};
+
+TEST_F(RealtimeTest, RunsTheRealtimeLoopAndReturnsToTheStream)
+{
+  const auto claims = body({"position", "effort", "feedback_gain"});
+  ASSERT_TRUE(switch_to(claims));
+  EXPECT_EQ(hw_->active_mode(Component::kBody), "realtime");
+  (void)command("right_arm_2/position").set_value(0.3);
+  run_for(500ms);
+  EXPECT_TRUE(backend_->realtime_running());
+  EXPECT_FALSE(backend_->stream_open());
+  EXPECT_GT(backend_->realtime_ticks(), 100u);
+  // 0.004 rad per 2 ms tick: 0.3 rad is reached in about 0.15 s
+  EXPECT_NEAR(state("right_arm_2/position"), 0.3, 0.01);
+
+  // a far target is approached at no more than 0.004 rad per 2 ms tick (2 rad/s)
+  (void)command("right_arm_2/position").set_value(1.5);
+  const auto t0 = std::chrono::steady_clock::now();
+  run_for(300ms);
+  const double elapsed = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
+  EXPECT_GT(state("right_arm_2/position"), 0.4);
+  EXPECT_LT(state("right_arm_2/position"), 0.3 + 2.0 * elapsed + 0.02);
+
+  // a head position controller joins the real-time loop (head targets are optional claims)
+  ASSERT_TRUE(switch_to({"head_0/position", "head_1/position"}));
+  EXPECT_EQ(hw_->active_mode(Component::kBody), "realtime");
+  // the base cannot run during real-time control
+  EXPECT_FALSE(switch_to({"right_wheel/velocity", "left_wheel/velocity"}));
+  ASSERT_TRUE(switch_to({}, {"head_0/position", "head_1/position"}));
+
+  // back to joint position on one arm: the loop ends and the stream holds the rest
+  ASSERT_TRUE(switch_to(arm("right", {"position"}), claims));
+  run_for(300ms);
+  EXPECT_FALSE(backend_->realtime_running());
+  EXPECT_TRUE(backend_->stream_open());
+  EXPECT_EQ(hw_->active_mode(Component::kRightArm), "joint_position");
 }
 
 }  // namespace

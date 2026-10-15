@@ -34,6 +34,9 @@ public:
   StreamFeedback send(const RobotCommandRequest & request, int timeout_ms) override;
   void close_stream() noexcept override;
   bool cancel_control() override;
+  bool start_realtime(RealtimeCallback callback, int priority, std::string & message) override;
+  void stop_realtime() noexcept override;
+  bool realtime_running() const override;
 
   // Test hooks.
   void inject_send_result(StreamStatus status);   // next send() returns this status
@@ -67,6 +70,13 @@ private:
   StateCallback callback_;
   std::atomic<bool> running_{false};
   std::thread thread_;
+  std::atomic<bool> rt_running_{false};
+  std::atomic<bool> rt_stop_{false};
+  std::thread rt_thread_;
+  size_t rt_ticks_{0};
+
+public:
+  size_t realtime_ticks() const {return rt_ticks_;}
 };
 
 }  // namespace rby1_hardware_interface

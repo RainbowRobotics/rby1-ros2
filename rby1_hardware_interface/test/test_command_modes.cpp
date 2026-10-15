@@ -293,6 +293,42 @@ TEST(CommandModes, GpioModes)
   EXPECT_STREQ(oc->name(), "optimal_control");
 }
 
+TEST(CommandModes, RealtimeModeSpansTheBody)
+{
+  Fixture f;
+  for (int i = 0; i < 6; ++i) {
+    f.add_joint("torso_" + std::to_string(i), Component::kTorso, false);
+  }
+  f.add_arm("right_arm_", Component::kRightArm, false);
+  for (auto & j : f.joints) {
+    j.cmd_effort = f.slots++;
+    j.cmd_feedback_gain = f.slots++;
+  }
+  const auto modes = make_modes(f.joints, f.gpios, f.params);
+  std::set<std::string> claims;
+  for (const auto & j : f.joints) {
+    claims.insert(j.name + "/position");
+    claims.insert(j.name + "/effort");
+    claims.insert(j.name + "/feedback_gain");
+  }
+  const auto * rt = select(modes, Component::kBody, claims);
+  ASSERT_NE(rt, nullptr);
+  EXPECT_TRUE(rt->is_realtime());
+  std::vector<double> measured(f.joints.size(), 0.0);
+  const StateView state{&measured, &measured, &measured};
+  std::vector<double> commands(f.slots, kNaN);
+  std::vector<double> conditioned(f.slots, kNaN);
+  rt->on_activate(commands, state);
+  commands[f.joints[0].cmd_feedback_gain] = 12.7;  // clamped to 10
+  commands[f.joints[1].cmd_effort] = 1000.0;      // clamped to the URDF effort (50)
+  size_t clamps = 0;
+  ASSERT_TRUE(rt->condition(commands, conditioned, state, clamps));
+  EXPECT_DOUBLE_EQ(conditioned[f.joints[0].cmd_feedback_gain], 10.0);
+  EXPECT_DOUBLE_EQ(conditioned[f.joints[1].cmd_effort], 50.0);
+  // without effort/feedback_gain claims the torso is a plain joint position mode again
+  EXPECT_EQ(select(modes, Component::kBody, f.positions("torso_", 6)), nullptr);
+}
+
 TEST(CommandModes, RejectsMissingGpioInterfaces)
 {
   Fixture f;

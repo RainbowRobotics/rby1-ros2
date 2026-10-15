@@ -21,6 +21,8 @@ namespace rby1_controllers
 // mode: position  -> claims <joint>/position                    (SDK JointPositionCommand)
 // mode: impedance -> claims <joint>/{position,stiffness,damping_ratio[,torque_limit]}
 //                                                               (SDK JointImpedanceControlCommand)
+// mode: realtime  -> claims <joint>/{position,effort,feedback_gain} (SDK real-time control; the
+//                    JointState effort field is the feedforward torque, feedback_gain a parameter)
 //
 // Inputs (latest message wins):
 //   ~/joint_commands  sensor_msgs/JointState  positions by joint name; messages missing one of
@@ -55,6 +57,11 @@ private:
 
   std::vector<std::string> joints_;
   bool impedance_{false};
+  bool realtime_{false};
+  std::atomic<double> feedback_gain_{10.0};
+  realtime_tools::RealtimeBuffer<std::shared_ptr<std::vector<double>>> effort_buffer_;
+  std::vector<double> effort_;
+  std::vector<int> effort_cmd_, gain_cmd_;
   bool use_torque_limit_{false};
   double command_timeout_{0.0};
 

@@ -125,6 +125,11 @@ public:
   // Stream thread: build the component command from conditioned values.
   virtual ComponentCommand build(const std::vector<double> & conditioned) const = 0;
 
+  // Real-time modes are not streamed: the hardware runs the SDK real-time loop instead and
+  // reads the conditioned values every control period.
+  virtual bool is_realtime() const {return false;}
+  const std::vector<size_t> & joint_ids() const {return binding_.joint_ids;}
+
 protected:
   const JointEntry & joint(size_t k) const {return (*binding_.joints)[binding_.joint_ids[k]];}
   size_t joint_count() const {return binding_.joint_ids.size();}

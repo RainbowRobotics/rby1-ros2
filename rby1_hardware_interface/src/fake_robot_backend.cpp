@@ -84,6 +84,7 @@ FakeRobotBackend::FakeRobotBackend(std::string model)
 
 FakeRobotBackend::~FakeRobotBackend()
 {
+  stop_realtime();
   stop_state_stream();
 }
 
@@ -263,6 +264,81 @@ bool FakeRobotBackend::cancel_control()
   std::lock_guard<std::mutex> lock(mutex_);
   stream_open_ = false;
   return true;
+}
+
+bool FakeRobotBackend::start_realtime(RealtimeCallback callback, int, std::string & message)
+{
+  stop_realtime();
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (stream_open_) {
+      message = "close the command stream before starting real-time control";
+      return false;
+    }
+  }
+  rt_stop_ = false;
+  rt_running_ = true;
+  rt_thread_ = std::thread([this, cb = std::move(callback)]() {
+      const size_t n = description_.joint_names.size();
+      RealtimeState state;
+      RealtimeInput input;
+      input.velocity_mode.assign(n, false);
+      input.target.assign(n, 0.0);
+      input.feedback_gain.assign(n, 10);
+      input.feedforward_torque.assign(n, 0.0);
+      auto next = std::chrono::steady_clock::now();
+      double t = 0.0;
+      while (!rt_stop_) {
+        next += std::chrono::milliseconds(2);
+        {
+          std::lock_guard<std::mutex> lock(mutex_);
+          state.t = t;
+          state.position = position_;
+          state.velocity = velocity_;
+          state.torque.assign(n, 0.0);
+          state.is_ready.assign(n, true);
+        }
+        input.target = state.position;
+        input.finish = false;
+        cb(state, input);
+        {
+          std::lock_guard<std::mutex> lock(mutex_);
+          for (size_t i = 0; i < n; ++i) {
+            if (input.velocity_mode[i]) {
+              position_[i] += input.target[i] * 0.002;
+              velocity_[i] = input.target[i];
+            } else {
+              velocity_[i] = (input.target[i] - position_[i]) / 0.002;
+              position_[i] = input.target[i];
+            }
+            target_[i] = position_[i];
+            velocity_mode_[i] = false;
+          }
+          ++rt_ticks_;
+        }
+        if (input.finish) {
+          break;
+        }
+        t += 0.002;
+        std::this_thread::sleep_until(next);
+      }
+      rt_running_ = false;
+    });
+  return true;
+}
+
+void FakeRobotBackend::stop_realtime() noexcept
+{
+  rt_stop_ = true;
+  if (rt_thread_.joinable()) {
+    rt_thread_.join();
+  }
+  rt_running_ = false;
+}
+
+bool FakeRobotBackend::realtime_running() const
+{
+  return rt_running_;
 }
 
 void FakeRobotBackend::inject_send_result(StreamStatus status)

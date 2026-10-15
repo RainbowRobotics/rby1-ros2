@@ -4,7 +4,9 @@
 #include <Eigen/Geometry>
 
 #include <cmath>
+#include <atomic>
 #include <mutex>
+#include <thread>
 #include <stdexcept>
 #include <type_traits>
 #include <utility>
@@ -252,6 +254,7 @@ public:
 
   ~SdkRobotBackend() override
   {
+    stop_realtime();
     disconnect();
   }
 
@@ -494,6 +497,82 @@ public:
     stream_.reset();
   }
 
+  bool start_realtime(RealtimeCallback callback, int priority, std::string & message) override
+  {
+    stop_realtime();
+    std::shared_ptr<rb::Robot<Model>> robot;
+    {
+      std::lock_guard<std::mutex> lock(mutex_);
+      if (!robot_) {
+        message = "not connected";
+        return false;
+      }
+      if (stream_) {
+        message = "close the command stream before starting real-time control";
+        return false;
+      }
+      robot = robot_;
+    }
+    rt_stop_ = false;
+    rt_running_ = true;
+    rt_thread_ = std::thread([this, robot, cb = std::move(callback), priority]() {
+        constexpr auto n = static_cast<size_t>(Model::kRobotDOF);
+        RealtimeState state;
+        state.position.resize(n);
+        state.velocity.resize(n);
+        state.torque.resize(n);
+        state.is_ready.resize(n);
+        RealtimeInput input;
+        input.velocity_mode.assign(n, false);
+        input.target.assign(n, 0.0);
+        input.feedback_gain.assign(n, 10);
+        input.feedforward_torque.assign(n, 0.0);
+        try {
+          robot->Control(
+            [&](const rb::ControlState<Model> & s) {
+              state.t = s.t;
+              for (size_t i = 0; i < n; ++i) {
+                const auto k = static_cast<Eigen::Index>(i);
+                state.position[i] = s.position[k];
+                state.velocity[i] = s.velocity[k];
+                state.torque[i] = s.torque[k];
+                state.is_ready[i] = s.is_ready[k];
+                input.target[i] = s.position[k];  // safe default if the callback leaves it
+              }
+              input.finish = false;
+              cb(state, input);
+              rb::ControlInput<Model> out;
+              for (size_t i = 0; i < n; ++i) {
+                const auto k = static_cast<Eigen::Index>(i);
+                out.mode[k] = input.velocity_mode[i];
+                out.target[k] = input.target[i];
+                out.feedback_gain[k] = std::min(10u, input.feedback_gain[i]);
+                out.feedforward_torque[k] = input.feedforward_torque[i];
+              }
+              out.finish = input.finish || rt_stop_;
+              return out;
+            }, 0, priority);
+        } catch (...) {
+        }
+        rt_running_ = false;
+      });
+    return true;
+  }
+
+  void stop_realtime() noexcept override
+  {
+    rt_stop_ = true;
+    if (rt_thread_.joinable()) {
+      rt_thread_.join();
+    }
+    rt_running_ = false;
+  }
+
+  bool realtime_running() const override
+  {
+    return rt_running_;
+  }
+
   bool cancel_control() override
   {
     std::lock_guard<std::mutex> lock(mutex_);
@@ -569,6 +648,9 @@ private:
   std::shared_ptr<rb::Robot<Model>> robot_;
   std::unique_ptr<rb::RobotCommandStreamHandler<Model>> stream_;
   bool state_stream_running_{false};
+  std::thread rt_thread_;
+  std::atomic<bool> rt_stop_{false};
+  std::atomic<bool> rt_running_{false};
 };
 
 }  // namespace

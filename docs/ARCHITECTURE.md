@@ -35,6 +35,8 @@ component and selects the single mode whose interface signature matches:
 | `<part>_impedance/t0.*` | impedance |
 | `<part>_optimal_control/...` (+ `com.*`) | optimal_control |
 
+| `<joint>/{position,effort,feedback_gain}` of every torso and arm joint (head optional) | realtime (body) |
+
 A claim that matches no mode, or a partial claim of an arm, is rejected (the controller does not
 activate). A `body` mode excludes torso and arm modes.
 
@@ -53,6 +55,14 @@ GPIO blocks carry `kind` and `component` parameters, plus the static part of the
   manager fault, an emergency stop or stale state (`state_timeout`) stop streaming and make
   `read()`/`write()` return ERROR, which the controller manager turns into deactivating the hardware.
 
+## Real-time control
+
+The `realtime` mode does not use the command stream. When it becomes active the stream thread closes
+the stream and starts `Robot::Control` on a backend thread; every 2 ms the loop reads the latest
+conditioned values (position, feedforward torque, feedback gain), applies the per-tick guards and
+returns the control input. It is exclusive: base controllers cannot run with it; head position
+controllers join it. When the mode ends the loop finishes and the stream resumes with a hold.
+
 ## Parameters (`<hardware>` in the URDF)
 
 | Parameter | Default | Meaning |
@@ -68,3 +78,4 @@ GPIO blocks carry `kind` and `component` parameters, plus the static part of the
 | `max_tracking_error`, `max_step` | 0.15 rad, 0.05 rad | guards (see SAFETY.md) |
 | `joint_impedance.<part>.stiffness`, `.torque_limit`, `damping_ratio` | — | defaults when a controller leaves them NaN |
 | `robot_parameter.<name>` | — | robot parameter set on activation (never persisted) |
+| `realtime.max_target_step`, `realtime.max_tracking_error`, `realtime.stale_ticks`, `realtime.priority` | 0.004 rad, 0.15 rad, 25, 1 | real-time loop guards |

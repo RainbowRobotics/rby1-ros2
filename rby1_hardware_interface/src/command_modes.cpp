@@ -1030,6 +1030,81 @@ private:
   std::string com_ref_link_;
 };
 
+// Whole-body real-time control (SDK RealTimeControlCommand / Robot::Control): position
+// target, feedforward torque and feedback gain (0-10) per joint, sent every 2 ms by the
+// hardware's real-time loop. Claims every torso and arm joint (head optional).
+class RealtimeMode : public CommandMode
+{
+public:
+  using CommandMode::CommandMode;
+  const char * name() const override {return "realtime";}
+  bool is_realtime() const override {return true;}
+
+  std::set<std::string> required_interfaces() const override
+  {
+    std::set<std::string> out;
+    for (size_t k = 0; k < joint_count(); ++k) {
+      if (joint(k).component != Component::kHead) {
+        add(out, joint(k).name);
+      }
+    }
+    return out;
+  }
+
+  std::set<std::string> optional_interfaces() const override
+  {
+    std::set<std::string> out;
+    for (size_t k = 0; k < joint_count(); ++k) {
+      if (joint(k).component == Component::kHead) {
+        add(out, joint(k).name);
+      }
+    }
+    return out;
+  }
+
+  void on_activate(std::vector<double> & commands, const StateView & state) const override
+  {
+    CommandMode::on_activate(commands, state);
+    for (size_t k = 0; k < joint_count(); ++k) {
+      commands[joint(k).cmd_effort] = 0.0;
+      commands[joint(k).cmd_feedback_gain] = 10.0;
+    }
+  }
+
+  bool condition(
+    const std::vector<double> & commands, std::vector<double> & conditioned,
+    const StateView & state, size_t & clamp_count) const override
+  {
+    condition_joint_positions(commands, conditioned, state, clamp_count);
+    const double max_ff_scale = param("max_feedforward_scale", 1.0);
+    for (size_t k = 0; k < joint_count(); ++k) {
+      const auto & j = joint(k);
+      double ff = commands[j.cmd_effort];
+      if (!finite(ff)) {
+        ff = 0.0;
+      }
+      const double limit = (j.effort_limit > 0.0 ? j.effort_limit : 50.0) * max_ff_scale;
+      const double clamped = std::clamp(ff, -limit, limit);
+      clamp_count += clamped != ff;
+      conditioned[j.cmd_effort] = clamped;
+      const double gain = commands[j.cmd_feedback_gain];
+      conditioned[j.cmd_feedback_gain] = finite(gain) ? std::clamp(std::round(gain), 0.0, 10.0) : 10.0;
+    }
+    return true;
+  }
+
+  ComponentCommand build(const std::vector<double> &) const override {return std::monostate{};}
+
+private:
+  static void add(std::set<std::string> & out, const std::string & joint)
+  {
+    out.insert(joint + "/position");
+    out.insert(joint + "/" + kEffortCommand);
+    out.insert(joint + "/" + kFeedbackGain);
+  }
+  static constexpr const char * kEffortCommand = "effort";
+};
+
 bool has_all(const std::vector<JointEntry> & joints, const std::vector<size_t> & ids, size_t JointEntry::* slot)
 {
   return !ids.empty() && std::all_of(ids.begin(), ids.end(), [&](size_t id) {
@@ -1082,6 +1157,23 @@ std::vector<std::unique_ptr<CommandMode>> make_modes(
     auto b = binding_for(Component::kMobility, nullptr);
     if (has_all(joints, b.joint_ids, &JointEntry::cmd_velocity)) {
       modes.push_back(std::make_unique<JointVelocityMode>(b));
+    }
+  }
+  {
+    // Real-time control spans torso, arms and head: bound to the virtual body component.
+    ModeBinding b = binding_for(Component::kBody, nullptr);
+    for (size_t id = 0; id < joints.size(); ++id) {
+      const auto c = joints[id].component;
+      if (c == Component::kTorso || c == Component::kRightArm || c == Component::kLeftArm || c == Component::kHead) {
+        b.joint_ids.push_back(id);
+      }
+    }
+    const bool all = !b.joint_ids.empty() && std::all_of(b.joint_ids.begin(), b.joint_ids.end(), [&](size_t id) {
+          return joints[id].cmd_position != kNoInterface && joints[id].cmd_effort != kNoInterface &&
+          joints[id].cmd_feedback_gain != kNoInterface;
+        });
+    if (all) {
+      modes.push_back(std::make_unique<RealtimeMode>(b));
     }
   }
 

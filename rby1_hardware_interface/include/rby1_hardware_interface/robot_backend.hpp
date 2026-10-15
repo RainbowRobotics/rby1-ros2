@@ -74,6 +74,25 @@ struct ReadyOptions
   int control_ready_timeout_ms{2000};
 };
 
+// Real-time control (Robot::Control, UDP at the robot's 2 ms period), robot joint order.
+struct RealtimeState
+{
+  double t{0.0};
+  std::vector<double> position;
+  std::vector<double> velocity;
+  std::vector<double> torque;
+  std::vector<bool> is_ready;
+};
+
+struct RealtimeInput
+{
+  std::vector<bool> velocity_mode;          // false: target is a position, true: a velocity
+  std::vector<double> target;
+  std::vector<unsigned int> feedback_gain;  // 0..10
+  std::vector<double> feedforward_torque;
+  bool finish{false};
+};
+
 class RobotBackend
 {
 public:
@@ -104,6 +123,13 @@ public:
 
   // Cancel any running control on the robot.
   virtual bool cancel_control() = 0;
+
+  // Real-time loop on a backend thread; `callback` runs every control period and fills the input.
+  // The loop is exclusive: the command stream must be closed first.
+  using RealtimeCallback = std::function<void(const RealtimeState &, RealtimeInput &)>;
+  virtual bool start_realtime(RealtimeCallback callback, int priority, std::string & message) = 0;
+  virtual void stop_realtime() noexcept = 0;  // ends the loop with finish and joins it
+  virtual bool realtime_running() const = 0;
 };
 
 std::unique_ptr<RobotBackend> make_sdk_backend(const std::string & model, const std::string & address);

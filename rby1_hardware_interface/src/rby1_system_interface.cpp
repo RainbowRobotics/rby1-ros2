@@ -132,6 +132,10 @@ CallbackReturn Rby1SystemInterface::initialize(const hardware_interface::Hardwar
     stream_priority_ = static_cast<int>(parameters_.get_double("stream_priority", 1));
     send_timeout_ms_ = static_cast<int>(parameters_.get_double("send_timeout", 0.2) * 1000.0);
     max_consecutive_failures_ = static_cast<int>(parameters_.get_double("max_consecutive_failures", 10));
+    rt_max_step_ = parameters_.get_double("realtime.max_target_step", 0.004);
+    rt_max_tracking_error_ = parameters_.get_double("realtime.max_tracking_error", 0.15);
+    rt_stale_ticks_ = static_cast<int>(parameters_.get_double("realtime.stale_ticks", 25));
+    rt_priority_ = static_cast<int>(parameters_.get_double("realtime.priority", stream_priority_));
     ready_options_.auto_enable = parameters_.get_bool("auto_enable", false);
     ready_options_.power_selector = parameters_.get_string("power_selector", ".*");
     ready_options_.servo_selector = parameters_.get_string("servo_selector", ".*");
@@ -505,11 +509,23 @@ bool Rby1SystemInterface::resolve_modes(
   const std::set<std::string> & claimed, ModeArray & modes, std::string & error) const
 {
   std::array<std::set<std::string>, kComponentCount> by_component;
+  // Real-time control claims effort and feedback_gain: its torso, arm and head claims are
+  // matched together against the body-level real-time mode.
+  const bool realtime = std::any_of(claimed.begin(), claimed.end(), [](const std::string & n) {
+        return n.size() > 7 && (n.compare(n.size() - 7, 7, "/effort") == 0 ||
+        (n.size() > 14 && n.compare(n.size() - 14, 14, "/feedback_gain") == 0));
+      });
   for (const auto & name : claimed) {
-    const auto component = component_of_interface(name);
-    if (component) {
-      by_component[index_of(*component)].insert(name);
+    auto component = component_of_interface(name);
+    if (!component) {
+      continue;
     }
+    if (realtime && (*component == Component::kTorso || *component == Component::kRightArm ||
+      *component == Component::kLeftArm || *component == Component::kHead))
+    {
+      component = Component::kBody;
+    }
+    by_component[index_of(*component)].insert(name);
   }
   modes.fill(nullptr);
   for (const auto component : kAllComponents) {
@@ -539,6 +555,13 @@ bool Rby1SystemInterface::resolve_modes(
     modes[index_of(Component::kLeftArm)]))
   {
     error = "a body-level mode cannot run together with torso or arm modes";
+    return false;
+  }
+  const auto * body = modes[index_of(Component::kBody)];
+  if (body != nullptr && body->is_realtime() &&
+    (modes[index_of(Component::kHead)] != nullptr || modes[index_of(Component::kMobility)] != nullptr))
+  {
+    error = "real-time control is exclusive: deactivate the head and base controllers";
     return false;
   }
   return true;
@@ -771,7 +794,6 @@ void Rby1SystemInterface::stream_loop()
   local.values.assign(slot_.values.size(), kNaN);
   std::vector<double> hold;
   int failures = 0;
-  uint64_t last_sequence = 0;
   uint64_t logged_clamps = 0;
   auto last_clamp_log = std::chrono::steady_clock::now();
 
@@ -800,11 +822,23 @@ void Rby1SystemInterface::stream_loop()
       local.sequence = slot_.sequence;
       hold = hold_position_;
     }
-    if (local.sequence == last_sequence) {
-      // write() has not run since the last send (controller manager stalled): resend the same
-      // command; the robot's hold time limits how long it stays valid.
+
+    const auto * body_mode = local.modes[index_of(Component::kBody)];
+    if (body_mode != nullptr && body_mode->is_realtime()) {
+      if (!backend_->realtime_running() && !fatal_) {
+        if (!start_realtime()) {
+          set_fatal("cannot start real-time control");
+        }
+      }
+      continue;
     }
-    last_sequence = local.sequence;
+    if (backend_->realtime_running()) {
+      backend_->stop_realtime();
+      std::lock_guard<std::mutex> lock(slot_mutex_);
+      hold = slot_.measured;  // continue with a hold where the real-time loop left the robot
+      hold_position_ = hold;
+      RCLCPP_INFO(logger_, "Real-time control ended; back to the command stream");
+    }
 
     RobotCommandRequest request;
     try {
@@ -877,6 +911,100 @@ void Rby1SystemInterface::stream_loop()
   }
 }
 
+bool Rby1SystemInterface::start_realtime()
+{
+  backend_->close_stream();
+  stream_ok_ = false;
+  {
+    std::lock_guard<std::mutex> lock(slot_mutex_);
+    rt_mode_ = slot_.modes[index_of(Component::kBody)];
+    rt_values_ = slot_.values;
+  }
+  rt_entry_of_robot_.assign(description_.joint_names.size(), -1);
+  for (size_t j = 0; j < joints_.size(); ++j) {
+    rt_entry_of_robot_[joints_[j].robot_index] = static_cast<int>(j);
+  }
+  rt_claimed_.assign(joints_.size(), false);
+  if (rt_mode_ != nullptr) {
+    for (const auto id : rt_mode_->joint_ids()) {
+      rt_claimed_[id] = true;
+    }
+  }
+  rt_initialized_ = false;
+  rt_stale_ = 0;
+  rt_last_t_ = -1.0;
+  std::string message;
+  const bool ok = backend_->start_realtime(
+    [this](const RealtimeState & state, RealtimeInput & input) {realtime_tick(state, input);}, rt_priority_, message);
+  if (ok) {
+    RCLCPP_INFO(logger_, "Real-time control started (%.3f rad/tick, %.2f rad tracking limit)", rt_max_step_,
+      rt_max_tracking_error_);
+  } else {
+    RCLCPP_ERROR(logger_, "Real-time control failed to start: %s", message.c_str());
+  }
+  return ok;
+}
+
+void Rby1SystemInterface::realtime_tick(const RealtimeState & state, RealtimeInput & input)
+{
+  const size_t n = state.position.size();
+  if (!rt_initialized_) {
+    rt_sent_ = state.position;
+    rt_initialized_ = true;
+  }
+  if (state.t == rt_last_t_) {
+    if (++rt_stale_ >= rt_stale_ticks_) {
+      set_fatal("real-time state did not advance for " + std::to_string(rt_stale_) + " ticks");
+    }
+  } else {
+    rt_stale_ = 0;
+  }
+  rt_last_t_ = state.t;
+  {
+    std::unique_lock<std::mutex> lock(slot_mutex_, std::try_to_lock);
+    if (lock.owns_lock() && slot_.values.size() == rt_values_.size()) {
+      std::copy(slot_.values.begin(), slot_.values.end(), rt_values_.begin());
+    }
+  }
+  for (size_t r = 0; r < n; ++r) {
+    const int e = r < rt_entry_of_robot_.size() ? rt_entry_of_robot_[r] : -1;
+    const bool claimed = e >= 0 && rt_claimed_[static_cast<size_t>(e)];
+    const bool wheel = e >= 0 && joints_[static_cast<size_t>(e)].component == Component::kMobility;
+    if (wheel || (e < 0 && std::find(description_.component_joints[index_of(Component::kMobility)].begin(),
+      description_.component_joints[index_of(Component::kMobility)].end(), r) !=
+      description_.component_joints[index_of(Component::kMobility)].end()))
+    {
+      input.velocity_mode[r] = true;  // wheels stand still
+      input.target[r] = 0.0;
+      input.feedback_gain[r] = 10;
+      input.feedforward_torque[r] = 0.0;
+      continue;
+    }
+    double desired = rt_sent_[r];
+    unsigned int gain = 10;
+    double ff = 0.0;
+    if (claimed) {
+      const auto & j = joints_[static_cast<size_t>(e)];
+      const double p = rt_values_[j.cmd_position];
+      if (std::isfinite(p)) {
+        desired = p;
+      }
+      gain = static_cast<unsigned int>(rt_values_[j.cmd_feedback_gain]);
+      ff = rt_values_[j.cmd_effort];
+    }
+    // Robot rules: the joint drivers refuse large single-tick jumps and the control manager
+    // faults when a target is more than 0.2 rad from the position.
+    desired = std::clamp(desired, rt_sent_[r] - rt_max_step_, rt_sent_[r] + rt_max_step_);
+    desired = std::clamp(desired, state.position[r] - rt_max_tracking_error_, state.position[r] + rt_max_tracking_error_);
+    rt_sent_[r] = desired;
+    input.velocity_mode[r] = false;
+    input.target[r] = desired;
+    input.feedback_gain[r] = std::min(10u, gain);
+    input.feedforward_torque[r] = std::isfinite(ff) ? ff : 0.0;
+  }
+  input.finish = fatal_.load() || !stream_thread_run_.load();
+}
+
 void Rby1SystemInterface::stop_streaming() noexcept
 {
   const bool was_running = stream_thread_run_.exchange(false);
@@ -884,6 +1012,11 @@ void Rby1SystemInterface::stop_streaming() noexcept
     stream_thread_.join();
   }
   if (!backend_ || !was_running) {
+    return;
+  }
+  if (backend_->realtime_running()) {
+    backend_->stop_realtime();  // the robot holds the last position when the loop finishes
+    streaming_ = false;
     return;
   }
   try {
