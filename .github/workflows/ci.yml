@@ -18,10 +18,10 @@ jobs:
             platform: linux/arm64   # UPC (Jetson Orin, Ubuntu 22.04)
     runs-on: ${{ matrix.platform == 'linux/arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
       - name: Build image (rby1-sdk via scripts/install_rby1_sdk.sh, rosdep, colcon build)
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: docker/Dockerfile
@@ -41,7 +41,7 @@ jobs:
     runs-on: ubuntu-22.04
     container: ros:humble-ros-base
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           path: src/rby1-ros2
       - name: Install rby1-sdk

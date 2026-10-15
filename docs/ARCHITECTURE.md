@@ -5,6 +5,7 @@
         │ command/state interfaces                               │ own gRPC client
         ▼                                                        ▼
  Rby1SystemInterface ── read(): copy latest state ◄── state stream thread (StartStateUpdate)
+        │                (lock-free triple buffer)
         │ write(): CommandMode::condition() per part (RT, no allocation)
         ▼
    command slot (mutex, latest wins)
@@ -42,6 +43,16 @@ activate). A `body` mode excludes torso and arm modes.
 
 GPIO blocks carry `kind` and `component` parameters, plus the static part of the SDK command
 (reference and target links, gains, limits); the per-cycle targets are command interfaces.
+
+## Real-time path
+
+`read()` and `write()` run in the controller manager's loop and do no gRPC, no allocation and no
+blocking locks:
+- the SDK state thread writes each sample into a triple buffer (`triple_buffer.hpp`); `read()` takes
+  the newest one without waiting and maps it to the exported state interfaces;
+- status gpio values are bound to their storage in `on_init`, so `read()` only assigns them;
+- `write()` conditions the commands into a preallocated buffer and hands them to the stream thread
+  with `try_lock` (a busy slot skips one cycle; the stream thread resends the previous command).
 
 ## Streaming
 

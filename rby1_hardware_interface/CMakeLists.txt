@@ -104,6 +104,10 @@ if(BUILD_TESTING)
   ament_add_gtest(test_command_modes test/test_command_modes.cpp)
   target_link_libraries(test_command_modes rby1_command_core)
 
+  ament_add_gtest(test_triple_buffer test/test_triple_buffer.cpp)
+  target_include_directories(test_triple_buffer PRIVATE include)
+  target_link_libraries(test_triple_buffer Threads::Threads)
+
   ament_add_gtest(test_system_interface test/test_system_interface.cpp TIMEOUT 120 SKIP_LINKING_MAIN_LIBRARIES)
   target_link_libraries(test_system_interface rby1_system_interface)
   ament_target_dependencies(test_system_interface hardware_interface rclcpp)

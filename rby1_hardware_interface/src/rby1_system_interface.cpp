@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <cstring>
 #include <limits>
 #include <stdexcept>
 #include <thread>
@@ -28,12 +29,38 @@ const std::set<std::string> kJointCommandInterfaces = {
   hardware_interface::HW_IF_POSITION, hardware_interface::HW_IF_VELOCITY, hardware_interface::HW_IF_EFFORT,
   kStiffness, kDampingRatio, kTorqueLimit, kFeedbackGain};
 
-const std::set<std::string> kStatusInterfaces = {
-  "control_manager_state", "control_state", "time_scale", "emo_pressed", "stream_active", "stream_restarts",
-  "clamp_count", "state_age", "odometry_x", "odometry_y", "odometry_yaw",
-  "ft_right_fx", "ft_right_fy", "ft_right_fz", "ft_right_tx", "ft_right_ty", "ft_right_tz",
-  "ft_left_fx", "ft_left_fy", "ft_left_fz", "ft_left_tx", "ft_left_ty", "ft_left_tz",
-  "mode_torso", "mode_right_arm", "mode_left_arm", "mode_head", "mode_mobility", "mode_body"};
+}  // namespace
+
+enum class Rby1SystemInterface::StatusField : uint8_t
+{
+  kControlManagerState, kControlState, kTimeScale, kEmoPressed, kStreamActive, kStreamRestarts,
+  kClampCount, kStateAge, kOdometryX, kOdometryY, kOdometryYaw,
+  kFtRight0, kFtRight1, kFtRight2, kFtRight3, kFtRight4, kFtRight5,
+  kFtLeft0, kFtLeft1, kFtLeft2, kFtLeft3, kFtLeft4, kFtLeft5,
+  kModeTorso, kModeRightArm, kModeLeftArm, kModeHead, kModeMobility, kModeBody,
+};
+
+namespace
+{
+
+using StatusField = Rby1SystemInterface::StatusField;
+
+const std::map<std::string, StatusField> kStatusInterfaces = {
+  {"control_manager_state", StatusField::kControlManagerState}, {"control_state", StatusField::kControlState},
+  {"time_scale", StatusField::kTimeScale}, {"emo_pressed", StatusField::kEmoPressed},
+  {"stream_active", StatusField::kStreamActive}, {"stream_restarts", StatusField::kStreamRestarts},
+  {"clamp_count", StatusField::kClampCount}, {"state_age", StatusField::kStateAge},
+  {"odometry_x", StatusField::kOdometryX}, {"odometry_y", StatusField::kOdometryY},
+  {"odometry_yaw", StatusField::kOdometryYaw},
+  {"ft_right_fx", StatusField::kFtRight0}, {"ft_right_fy", StatusField::kFtRight1},
+  {"ft_right_fz", StatusField::kFtRight2}, {"ft_right_tx", StatusField::kFtRight3},
+  {"ft_right_ty", StatusField::kFtRight4}, {"ft_right_tz", StatusField::kFtRight5},
+  {"ft_left_fx", StatusField::kFtLeft0}, {"ft_left_fy", StatusField::kFtLeft1},
+  {"ft_left_fz", StatusField::kFtLeft2}, {"ft_left_tx", StatusField::kFtLeft3},
+  {"ft_left_ty", StatusField::kFtLeft4}, {"ft_left_tz", StatusField::kFtLeft5},
+  {"mode_torso", StatusField::kModeTorso}, {"mode_right_arm", StatusField::kModeRightArm},
+  {"mode_left_arm", StatusField::kModeLeftArm}, {"mode_head", StatusField::kModeHead},
+  {"mode_mobility", StatusField::kModeMobility}, {"mode_body", StatusField::kModeBody}};
 
 // Status value of a mode, for the mode_<component> status interfaces.
 double mode_code(const CommandMode * mode)
@@ -41,11 +68,16 @@ double mode_code(const CommandMode * mode)
   if (mode == nullptr) {
     return 0.0;
   }
-  static const std::vector<std::string> names = {
+  // Codes of the mode_<component> status interfaces (0: hold / none).
+  static constexpr const char * kNames[] = {
     "joint_position", "joint_group_position", "joint_impedance", "gravity_compensation", "joint_velocity",
-    "se2_velocity", "cartesian", "cartesian_impedance", "impedance", "optimal_control"};
-  const auto it = std::find(names.begin(), names.end(), mode->name());
-  return it == names.end() ? -1.0 : static_cast<double>(it - names.begin() + 1);
+    "se2_velocity", "cartesian", "cartesian_impedance", "impedance", "optimal_control", "realtime"};
+  for (size_t i = 0; i < sizeof(kNames) / sizeof(kNames[0]); ++i) {
+    if (std::strcmp(kNames[i], mode->name()) == 0) {
+      return static_cast<double>(i + 1);
+    }
+  }
+  return -1.0;
 }
 
 std::optional<Component> component_from_joint_name(const std::string & name)
@@ -256,6 +288,7 @@ bool Rby1SystemInterface::parse_gpios(const hardware_interface::HardwareInfo & i
         }
         status_values_[s.name] = 0.0;
         status_interfaces_.emplace_back(gpio.name, s.name);
+        status_slots_.emplace_back(kStatusInterfaces.at(s.name), &status_values_[s.name]);
       }
       entry.component = Component::kBody;
     } else {
@@ -371,18 +404,12 @@ CallbackReturn Rby1SystemInterface::on_configure(const rclcpp_lifecycle::State &
     }
   }
 
-  {
-    std::lock_guard<std::mutex> lock(state_mutex_);
-    has_state_ = false;
-  }
+  state_buffer_.reset(StateSample{});
   backend_->start_state_stream(state_rate_, [this](const StateSample & sample) {on_state(sample);});
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(3);
   while (std::chrono::steady_clock::now() < deadline) {
-    {
-      std::lock_guard<std::mutex> lock(state_mutex_);
-      if (has_state_) {
-        break;
-      }
+    if (state_buffer_.has_data()) {
+      break;
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }
@@ -652,20 +679,17 @@ return_type Rby1SystemInterface::perform_command_mode_switch(
 
 void Rby1SystemInterface::on_state(const StateSample & sample)
 {
-  std::lock_guard<std::mutex> lock(state_mutex_);
-  latest_ = sample;
-  has_state_ = true;
+  // SDK state thread: the back buffer has the same vector sizes, so this copy does not allocate.
+  state_buffer_.back() = sample;
+  state_buffer_.publish();
 }
 
 bool Rby1SystemInterface::copy_state()
 {
-  {
-    std::lock_guard<std::mutex> lock(state_mutex_);
-    if (!has_state_) {
-      return false;
-    }
-    current_ = latest_;
+  if (!state_buffer_.has_data()) {
+    return false;
   }
+  current_ = state_buffer_.read();  // lock-free; same sizes, no allocation
   for (size_t i = 0; i < joints_.size(); ++i) {
     const auto r = joints_[i].robot_index;
     if (r >= current_.position.size()) {
@@ -680,33 +704,35 @@ bool Rby1SystemInterface::copy_state()
 
 void Rby1SystemInterface::update_status_values()
 {
-  if (status_values_.empty()) {
-    return;
-  }
-  auto set = [this](const char * name, double value) {
-      const auto it = status_values_.find(name);
-      if (it != status_values_.end()) {
-        it->second = value;
-      }
-    };
-  set("control_manager_state", static_cast<double>(current_.control_manager));
-  set("control_state", static_cast<double>(current_.control));
-  set("time_scale", current_.time_scale);
-  set("emo_pressed", current_.emo_pressed ? 1.0 : 0.0);
-  set("stream_active", stream_ok_ ? 1.0 : 0.0);
-  set("stream_restarts", static_cast<double>(stream_restarts_.load()));
-  set("clamp_count", static_cast<double>(clamp_count_.load()));
-  set("state_age", std::chrono::duration<double>(std::chrono::steady_clock::now() - current_.received).count());
-  set("odometry_x", current_.odometry[0]);
-  set("odometry_y", current_.odometry[1]);
-  set("odometry_yaw", current_.odometry[2]);
-  const char * axes[6] = {"fx", "fy", "fz", "tx", "ty", "tz"};
-  for (int a = 0; a < 6; ++a) {
-    set(("ft_right_" + std::string(axes[a])).c_str(), current_.ft_right[a]);
-    set(("ft_left_" + std::string(axes[a])).c_str(), current_.ft_left[a]);
-  }
-  for (const auto component : kAllComponents) {
-    set(("mode_" + std::string(to_string(component))).c_str(), mode_code(active_[index_of(component)]));
+  const double age = std::chrono::duration<double>(std::chrono::steady_clock::now() - current_.received).count();
+  for (const auto & [field, value] : status_slots_) {
+    switch (field) {
+      case StatusField::kControlManagerState: *value = static_cast<double>(current_.control_manager); break;
+      case StatusField::kControlState: *value = static_cast<double>(current_.control); break;
+      case StatusField::kTimeScale: *value = current_.time_scale; break;
+      case StatusField::kEmoPressed: *value = current_.emo_pressed ? 1.0 : 0.0; break;
+      case StatusField::kStreamActive: *value = stream_ok_ ? 1.0 : 0.0; break;
+      case StatusField::kStreamRestarts: *value = static_cast<double>(stream_restarts_.load()); break;
+      case StatusField::kClampCount: *value = static_cast<double>(clamp_count_.load()); break;
+      case StatusField::kStateAge: *value = age; break;
+      case StatusField::kOdometryX: *value = current_.odometry[0]; break;
+      case StatusField::kOdometryY: *value = current_.odometry[1]; break;
+      case StatusField::kOdometryYaw: *value = current_.odometry[2]; break;
+      case StatusField::kFtRight0: case StatusField::kFtRight1: case StatusField::kFtRight2:
+      case StatusField::kFtRight3: case StatusField::kFtRight4: case StatusField::kFtRight5:
+        *value = current_.ft_right[static_cast<size_t>(field) - static_cast<size_t>(StatusField::kFtRight0)];
+        break;
+      case StatusField::kFtLeft0: case StatusField::kFtLeft1: case StatusField::kFtLeft2:
+      case StatusField::kFtLeft3: case StatusField::kFtLeft4: case StatusField::kFtLeft5:
+        *value = current_.ft_left[static_cast<size_t>(field) - static_cast<size_t>(StatusField::kFtLeft0)];
+        break;
+      case StatusField::kModeTorso: *value = mode_code(active_[index_of(Component::kTorso)]); break;
+      case StatusField::kModeRightArm: *value = mode_code(active_[index_of(Component::kRightArm)]); break;
+      case StatusField::kModeLeftArm: *value = mode_code(active_[index_of(Component::kLeftArm)]); break;
+      case StatusField::kModeHead: *value = mode_code(active_[index_of(Component::kHead)]); break;
+      case StatusField::kModeMobility: *value = mode_code(active_[index_of(Component::kMobility)]); break;
+      case StatusField::kModeBody: *value = mode_code(active_[index_of(Component::kBody)]); break;
+    }
   }
 }
 

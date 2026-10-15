@@ -25,6 +25,7 @@
 
 #include "rby1_hardware_interface/command_modes.hpp"
 #include "rby1_hardware_interface/robot_backend.hpp"
+#include "rby1_hardware_interface/triple_buffer.hpp"
 
 namespace rby1_hardware_interface
 {
@@ -39,6 +40,8 @@ namespace rby1_hardware_interface
 class Rby1SystemInterface : public hardware_interface::SystemInterface
 {
 public:
+  enum class StatusField : uint8_t;  // values of the rby1_status gpio
+
   Rby1SystemInterface();
   ~Rby1SystemInterface() override;
 
@@ -112,8 +115,11 @@ private:
   std::vector<double> commands_;     // exported command interfaces
   std::vector<double> conditioned_;  // RT-owned conditioned copy
   std::vector<double> position_, velocity_, effort_;  // exported state, JointEntry order
-  std::map<std::string, double> status_values_;      // exported status gpio states
+  // Status gpio states: exported storage (stable addresses) and, per exported state, the value
+  // it shows, resolved once in on_init so read() only assigns.
+  std::map<std::string, double> status_values_;
   std::vector<std::pair<std::string, std::string>> status_interfaces_;  // (gpio, interface)
+  std::vector<std::pair<StatusField, double *>> status_slots_;
   std::vector<std::unique_ptr<CommandMode>> modes_;
 
   // Mode selection (guarded by mode_mutex_ because Humble switches from a non-RT thread).
@@ -127,11 +133,8 @@ private:
   std::shared_ptr<RobotBackend> backend_;
   bool backend_injected_{false};
   RobotDescription description_;
-  std::mutex state_mutex_;
-  StateSample latest_;
-  bool has_state_{false};
-  std::chrono::steady_clock::time_point last_state_time_{};
-  StateSample current_;  // RT copy
+  TripleBuffer<StateSample> state_buffer_;  // SDK state thread -> read()
+  StateSample current_;                     // RT copy
 
   // Stream thread exchange.
   struct Slot
