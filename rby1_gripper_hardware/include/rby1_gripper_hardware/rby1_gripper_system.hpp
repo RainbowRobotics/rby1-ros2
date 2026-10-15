@@ -49,7 +49,8 @@ class GripperBus
 {
 public:
   virtual ~GripperBus() = default;
-  virtual void open() = 0;
+  // Returns a warning (empty if none), throws if the bus cannot be used.
+  virtual std::string open() = 0;
   virtual void close() noexcept = 0;
   // Drive the motor against both ends with `current` [A] for `seconds` each and return
   // the motor angles at the two ends (unordered).

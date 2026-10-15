@@ -1,9 +1,53 @@
-"""Probe an RBY1 robot for its model name and version via the rby1-sdk Python bindings."""
+"""Probe an RBY1 robot for its model name and version.
+
+Uses the rby1_probe executable of rby1_hardware_interface (C++ rby1-sdk), and falls back to
+the rby1-sdk Python bindings when the executable is not available.
+"""
 
 from __future__ import annotations
 
+import json
+import os
 import re
+import subprocess
 from typing import Optional, Tuple
+
+
+def _normalize(raw_name: str, raw_version: str, robot_ip: str) -> Tuple[str, Optional[str]]:
+    name = (raw_name or "").strip().lower()
+    if name.startswith("ub"):
+        model = "ub"
+    elif name.startswith("a"):
+        model = "a"
+    elif name.startswith("m"):
+        model = "m"
+    else:
+        raise RuntimeError(f"RBY1 model probe returned unsupported model name '{name}' from '{robot_ip}'.")
+    match = re.search(r"(\d+\.\d+)", raw_version or "")
+    version = match.group(1) if match else None
+    print(f"[rby1_bringup] Detected RBY1 model='{model}' version='{version}' (raw '{name}', '{raw_version}')")
+    return model, version
+
+
+def _probe_executable() -> Optional[str]:
+    try:
+        from ament_index_python.packages import get_package_prefix
+
+        path = os.path.join(get_package_prefix("rby1_hardware_interface"), "lib", "rby1_hardware_interface", "rby1_probe")
+        return path if os.access(path, os.X_OK) else None
+    except Exception:
+        return None
+
+
+def _probe_cpp(executable: str, robot_ip: str, connect_timeout_sec: float) -> Tuple[str, Optional[str]]:
+    timeout_ms = max(1, int(round(connect_timeout_sec * 1000.0)))
+    result = subprocess.run(
+        [executable, robot_ip, str(timeout_ms)], capture_output=True, text=True, timeout=connect_timeout_sec + 10.0
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"RBY1 model probe failed for '{robot_ip}': {result.stderr.strip()}")
+    info = json.loads(result.stdout.strip().splitlines()[-1])
+    return _normalize(info.get("model_name", ""), info.get("model_version", ""), robot_ip)
 
 
 def detect_model_and_version(
@@ -23,6 +67,10 @@ def detect_model_and_version(
     Raises ``RuntimeError`` if the SDK is missing, the connection fails, or the
     reported model name is not recognized.
     """
+    executable = _probe_executable()
+    if executable:
+        return _probe_cpp(executable, robot_ip, connect_timeout_sec)
+
     try:
         import rby1_sdk as rby
     except ImportError as exc:
@@ -60,29 +108,9 @@ def detect_model_and_version(
                 f"RBY1 model probe could not read robot info from '{robot_ip}': {exc}"
             ) from exc
 
-        raw_name = (getattr(info, "robot_model_name", "") or "").strip().lower()
-        raw_version = (getattr(info, "robot_model_version", "") or "").strip()
-
-        if raw_name.startswith("a"):
-            model = "a"
-        elif raw_name.startswith("m"):
-            model = "m"
-        elif raw_name.startswith("ub"):
-            model = "ub"
-        else:
-            raise RuntimeError(
-                f"RBY1 model probe returned unsupported model name '{raw_name}' "
-                f"from '{robot_ip}'."
-            )
-
-        match = re.search(r"(\d+\.\d+)", raw_version)
-        version = match.group(1) if match else None
-
-        print(
-            f"[rby1_bringup] Detected RBY1 model='{model}' version='{version}' "
-            f"(raw_name='{raw_name}', raw_version='{raw_version}')"
+        return _normalize(
+            getattr(info, "robot_model_name", ""), getattr(info, "robot_model_version", ""), robot_ip
         )
-        return model, version
     finally:
         try:
             robot.disconnect()

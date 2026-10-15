@@ -1,0 +1,4 @@
+# RB-Y1 gripper serial adapter on the UPC: 1 ms USB latency for the Dynamixel bus.
+# Install: sudo cp 99-rby1-gripper.rules /etc/udev/rules.d/ && sudo udevadm control --reload && sudo udevadm trigger
+# The vendor image already provides the /dev/rby1_gripper symlink; this rule only adds the latency timer.
+ACTION=="add", SUBSYSTEM=="usb-serial", DRIVER=="ftdi_sio", ATTR{latency_timer}="1"

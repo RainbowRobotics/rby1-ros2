@@ -1,88 +1,122 @@
-# RBY1 ROS 2 Control Driver
+# RB-Y1 ROS 2 Control Driver
 
-This branch is a clean ROS 2 Humble implementation of the RBY1 driver foundation using `ros2_control`.
+`ros2_control` driver for Rainbow Robotics RB-Y1 (models A, M and UB) on ROS 2 Humble and Jazzy.
 
-The first implementation is intentionally state-first and conservative:
-
-- `hardware_interface::SystemInterface` exposes joint position, velocity, and effort state interfaces.
-- `joint_state_broadcaster` publishes standard `/joint_states`.
-- A separate robot manager node provides non-real-time management services for power, servo, brakes, tool flange power, gravity compensation, and control-manager commands.
-- Motion command interfaces are not exported in this version, so no controller can move the robot through `ros2_control` yet.
+- Every rby1-sdk motion controller is available as a `ros2_control` command mode: joint position,
+  joint group position, joint impedance, gravity compensation, joint and SE2 velocity, Cartesian,
+  Cartesian impedance, impedance and optimal control ([docs/SDK_COVERAGE.md](docs/SDK_COVERAGE.md)).
+- The hardware picks the SDK controller of each body part (torso, right arm, left arm, head,
+  mobile base, whole body) from the interfaces the active controller claims, so standard controllers
+  (`joint_trajectory_controller`, `forward_command_controller`, `GripperActionController`) and the
+  RB-Y1 controllers in `rby1_controllers` work side by side and can be switched at runtime.
+- Compatible with the Isaac ROS gear-assembly inference nodes
+  (`isaac_ros_manipulation_dnn_policy`): `/joint_states`, a joint impedance controller taking
+  `sensor_msgs/JointState` targets, `switch_controller` and `GripperCommand`
+  ([docs/ISAAC_ROS.md](docs/ISAAC_ROS.md)).
+- RB gripper (Dynamixel on the UPC serial port) as a second hardware component.
+- Runs natively or in Docker on the UPC (Jetson Orin, Ubuntu 22.04) or on any PC on the robot network.
 
 ## Packages
 
-- `rby1_msgs`: Stable status messages and management services.
-- `rby1_description`: Xacro descriptions for RBY1-A and RBY1-M with `ros2_control` tags.
-- `rby1_hardware_interface`: RBY1 SDK adapter and `ros2_control` system plugin.
-- `rby1_robot_manager`: Non-real-time service and status-topic node.
-- `rby1_bringup`: Launch and controller configuration.
+| Package | Contents |
+|---|---|
+| `rby1_hardware_interface` | `Rby1SystemInterface` plugin, command modes, SDK and fake backends, `rby1_probe` |
+| `rby1_controllers` | `JointStreamController`, `GravityCompensationController`, `BaseVelocityController`, `TaskSpaceController` |
+| `rby1_gripper_hardware` | `Rby1GripperSystem` plugin (RB gripper, fake) |
+| `rby1_robot_manager` | Non-real-time services: power, servo, brakes, control manager, stop, jog, time scale, LED, tool flange, parameters, logs |
+| `rby1_description` | URDF/xacro for A (v1.0-1.2), M (v1.0-1.3) and UB with the `ros2_control` blocks |
+| `rby1_bringup` | Launch files and controller configurations |
+| `rby1_msgs` | Status messages and manager services |
 
 ## Build
 
-Install the RBY1 SDK Python package before building:
+The hardware interface needs the rby1-sdk C++ library (the `rby1-sdk` pip wheel has no C++ headers).
+
+### Native (UPC or development PC)
 
 ```bash
-pip install rby1-sdk
-```
-
-Then build the workspace:
-
-```bash
-colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo
-```
-
-Source the workspace after building:
-
-```bash
+mkdir -p ~/rby1_ws/src && cd ~/rby1_ws/src
+git clone -b feature/ros2_control_commands https://github.com/RainbowRobotics/rby1-ros2.git
+./rby1-ros2/scripts/install_rby1_sdk.sh            # /opt/rby1-sdk, or ~/.local/rby1-sdk without sudo
+cd ~/rby1_ws
+source /opt/ros/humble/setup.bash
+rosdep install --from-paths src --ignore-src -y
+colcon build --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo
 source install/setup.bash
 ```
 
-## Mock Hardware
+`CMAKE_PREFIX_PATH` or `-DRBY1_SDK_ROOT=<prefix>` select another SDK install.
 
-Use mock hardware to validate the ROS graph without connecting to a robot:
-
-```bash
-ros2 launch rby1_bringup rby1_mock.launch.py
-```
-
-In mock mode `model:=auto` (default) resolves to `a` and `version:=auto`
-resolves to `1.2`. Override either explicitly, e.g. `model:=m version:=1.3`.
-
-## Real Hardware Read-Only Bringup
+### Docker
 
 ```bash
-ros2 launch rby1_bringup rby1_control.launch.py robot_ip:=192.168.0.10:50051
+docker build -f docker/Dockerfile --build-arg ROS_DISTRO=humble -t rby1-ros2:humble .
+docker/run_upc.sh -- model:=a gripper:=true          # on the UPC
 ```
 
-Both `model` and `version` default to `auto`. On launch, the bringup connects
-to the robot via `rby1-sdk` and reads `RobotInfo.robot_model_name` /
-`robot_model_version` to select the URDF (RBY1-A / RBY1-M / RBY1-UB) and the
-correct version sub-directory. Pass `model:=a|m|ub` or `version:=1.0` (etc.)
-to skip auto-detection for that field. If the probed version is not in the
-supported set (`a: 1.0/1.1/1.2`, `m: 1.0/1.1/1.2/1.3`), the bringup logs a
-warning and falls back to `1.2`. If the probe itself fails (network
-unreachable, SDK missing, unknown model), the launch aborts with an error.
+See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for the UPC, real-time settings and the gripper udev rule.
 
-The hardware interface only reads state in this version. Power, servo, brake, and control-manager changes are explicit service calls through `rby1_robot_manager`.
+## Run
 
-## Services
+```bash
+# Without a robot: the real hardware interface against an in-memory robot
+ros2 launch rby1_bringup rby1_mock.launch.py model:=a gripper:=true
 
-When `launch_robot_manager:=true`, the manager node provides:
+# rby1 simulator core (rby1-sim-isaac or the MuJoCo simulator image) on 127.0.0.1:50051
+ros2 launch rby1_bringup rby1_sim.launch.py model:=a
 
-- `/rby1/robot_power`
-- `/rby1/robot_servo`
-- `/rby1/set_motor_brake`
-- `/rby1/tool_flange_power`
-- `/rby1/gravity_compensation`
-- `/rby1/control_manager_command`
+# Robot (model and version detected with rby1_probe)
+ros2 launch rby1_bringup rby1_control.launch.py robot_ip:=192.168.30.1:50051 gripper:=true
+```
 
-## Status Topics
+Only `joint_state_broadcaster` is active after start-up; every other controller is loaded inactive.
+Nothing is commanded until a controller that claims command interfaces is activated. Activate
+controllers at start-up with `activate_controllers:="right_arm_controller left_arm_controller"` or
+switch them at runtime:
 
-- `/joint_states` from `joint_state_broadcaster`
-- `/rby1/robot_state`
-- `/rby1/battery_state` when enabled
-- `/rby1/tool_flange/left` and `/rby1/tool_flange/right` when enabled
+```bash
+ros2 control switch_controllers --activate right_arm_impedance_controller
+ros2 topic pub /right_arm_impedance_controller/joint_commands sensor_msgs/msg/JointState \
+  "{name: [right_arm_0, right_arm_1, right_arm_2, right_arm_3, right_arm_4, right_arm_5, right_arm_6],
+    position: [0.0, -0.2, 0.0, -0.5, 0.0, 0.3, 0.0]}"
+```
 
-## Current Scope
+Before activation the robot must be powered, servoed and its control manager enabled (robot manager
+services, or `auto_enable:=true`). See [docs/SAFETY.md](docs/SAFETY.md) before moving the robot.
 
-This branch deliberately does not include the old monolithic `rby1_driver` node, action servers, Cartesian commands, streaming trajectory commands, or MoveIt integration. Those features should be added incrementally after the read-only hardware interface and management layer are stable on real hardware.
+## Controllers
+
+| Controller (per part) | Type | SDK controller |
+|---|---|---|
+| `<part>_controller` | `joint_trajectory_controller/JointTrajectoryController` | JointPositionCommand |
+| `<arm>_position_stream_controller` | `rby1_controllers/JointStreamController` (position) | JointPositionCommand |
+| `<arm>_impedance_controller`, `torso_impedance_controller` | `rby1_controllers/JointStreamController` (impedance) | JointImpedanceControlCommand |
+| `<part>_gravity_compensation_controller` | `rby1_controllers/GravityCompensationController` | GravityCompensationCommand |
+| `base_velocity_controller` | `rby1_controllers/BaseVelocityController` | SE2VelocityCommand |
+| `wheel_velocity_controller` | `velocity_controllers/JointGroupVelocityController` | JointVelocityCommand |
+| `<part>_cartesian_controller` | `rby1_controllers/TaskSpaceController` | CartesianCommand |
+| `<part>_cartesian_impedance_controller` | `rby1_controllers/TaskSpaceController` | CartesianImpedanceControlCommand |
+| `<part>_impedance_pose_controller` | `rby1_controllers/TaskSpaceController` | ImpedanceControlCommand |
+| `<part>_optimal_control_controller` | `rby1_controllers/TaskSpaceController` | OptimalControlCommand |
+| `<side>_gripper_controller` | `position_controllers/GripperActionController` | RB gripper (Dynamixel) |
+
+Stop and jog are whole-robot commands and live in the robot manager (`/rby1/stop`, `/rby1/jog`).
+
+## Documentation
+
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): how the hardware interface works
+- [docs/SDK_COVERAGE.md](docs/SDK_COVERAGE.md): every rby1-sdk controller and API, and where it is exposed
+- [docs/ISAAC_ROS.md](docs/ISAAC_ROS.md): running the Isaac ROS gear-assembly policy on RB-Y1
+- [docs/SAFETY.md](docs/SAFETY.md): guards, limits and the real-robot facts behind them
+- [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md): UPC native and Docker deployment
+- [docs/ADDING_A_MODE.md](docs/ADDING_A_MODE.md): adding a new SDK controller
+
+## Tests
+
+```bash
+colcon test --packages-select rby1_hardware_interface rby1_controllers rby1_gripper_hardware rby1_bringup
+colcon test-result --verbose
+```
+
+The tests run without a robot: command-mode selection and guards, the system interface against the
+fake backend, the gripper with a fake bus, plugin loading, and a launch test of the Isaac ROS contract.

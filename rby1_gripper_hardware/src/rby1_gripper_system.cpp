@@ -178,7 +178,10 @@ CallbackReturn Rby1GripperSystem::on_configure(const rclcpp_lifecycle::State &)
       }
       std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
-    bus_->open();
+    const auto warning = bus_->open();
+    if (!warning.empty()) {
+      RCLCPP_WARN(logger_, "%s", warning.c_str());
+    }
     for (size_t m = 0; m < motor_ids_.size(); ++m) {
       if (calibrate_) {
         RCLCPP_INFO(logger_, "Calibrating gripper motor %d (the gripper opens and closes)", motor_ids_[m]);

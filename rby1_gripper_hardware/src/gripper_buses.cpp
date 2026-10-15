@@ -27,9 +27,16 @@ class DynamixelGripperBus final : public GripperBus
 public:
   explicit DynamixelGripperBus(std::string device) : device_(std::move(device)) {}
 
-  void open() override
+  std::string open() override
   {
-    rb::upc::InitializeDevice(device_);
+    std::string warning;
+    try {
+      // Sets the USB serial latency timer to 1 ms (needs write access to sysfs).
+      rb::upc::InitializeDevice(device_);
+    } catch (const std::exception & e) {
+      warning = std::string("could not set the USB latency timer (") + e.what() +
+        "); install the udev rule from docs/DEPLOYMENT.md for 1 ms latency";
+    }
     bus_ = std::make_unique<rb::DynamixelBus>(device_);
     if (!bus_->OpenPort()) {
       throw std::runtime_error("cannot open " + device_);
@@ -37,6 +44,7 @@ public:
     if (!bus_->SetBaudRate(rb::DynamixelBus::kDefaultBaudrate)) {
       throw std::runtime_error("cannot set the baud rate on " + device_);
     }
+    return warning;
   }
 
   void close() noexcept override
@@ -138,7 +146,7 @@ private:
 class FakeGripperBus final : public GripperBus
 {
 public:
-  void open() override {}
+  std::string open() override {return {};}
   void close() noexcept override {}
   std::array<double, 2> find_stroke(int id, double, double) override
   {

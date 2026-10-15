@@ -71,7 +71,11 @@ ament_target_dependencies(rby1_system_interface PUBLIC
   urdf
 )
 
-set_target_properties(rby1_sdk_backend rby1_robot_client rby1_system_interface PROPERTIES
+# Model probe used by rby1_bringup (model:=auto).
+add_executable(rby1_probe src/rby1_probe.cpp)
+target_link_libraries(rby1_probe PRIVATE rby1-sdk::rby1-sdk Eigen3::Eigen)
+
+set_target_properties(rby1_sdk_backend rby1_robot_client rby1_system_interface rby1_probe PROPERTIES
   INSTALL_RPATH "${RBY1_SDK_LIBRARY_DIR}"
   BUILD_RPATH "${RBY1_SDK_LIBRARY_DIR}"
 )
@@ -79,6 +83,7 @@ set_target_properties(rby1_sdk_backend rby1_robot_client rby1_system_interface P
 pluginlib_export_plugin_description_file(hardware_interface rby1_hardware_interface.xml)
 
 install(DIRECTORY include/ DESTINATION include)
+install(TARGETS rby1_probe RUNTIME DESTINATION lib/${PROJECT_NAME})
 install(
   TARGETS rby1_command_core rby1_sdk_backend rby1_robot_client rby1_system_interface
   EXPORT export_${PROJECT_NAME}
