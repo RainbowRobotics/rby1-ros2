@@ -1,0 +1,8 @@
+# Get (value empty) or set a robot parameter. write_db persists the value on the robot.
+string name
+string value
+bool write_db
+---
+bool success
+string message
+string value

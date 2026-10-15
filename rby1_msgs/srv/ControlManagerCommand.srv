@@ -2,6 +2,7 @@ int8 CMD_NONE = 0
 int8 CMD_ENABLE = 1
 int8 CMD_DISABLE = 2
 int8 CMD_RESET = 3
+int8 CMD_ENABLE_UNLIMITED = 4  # enable with joint limits disabled (use with care)
 
 int8 command
 ---

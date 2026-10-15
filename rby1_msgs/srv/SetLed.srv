@@ -1,0 +1,10 @@
+uint8 r
+uint8 g
+uint8 b
+float64 duration         # [s]
+float64 transition_time  # [s]
+bool blinking
+float64 blinking_frequency  # [Hz]
+---
+bool success
+string message

@@ -1,0 +1,12 @@
+# Get (set=false) or set the position PID gain of the joint drivers matching `device` (regex).
+string device
+bool set
+uint16 p_gain
+uint16 i_gain
+uint16 d_gain
+---
+bool success
+string message
+uint16 p_gain
+uint16 i_gain
+uint16 d_gain

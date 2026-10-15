@@ -14,7 +14,17 @@
 #include "rby1_msgs/msg/tool_flange_state.hpp"
 #include "rby1_msgs/srv/control_manager_command.hpp"
 #include "rby1_msgs/srv/gravity_compensation.hpp"
+#include "rby1_msgs/srv/get_logs.hpp"
+#include "rby1_msgs/srv/jog.hpp"
+#include "rby1_msgs/srv/joint_operation.hpp"
+#include "rby1_msgs/srv/position_pid_gain.hpp"
+#include "rby1_msgs/srv/reset_odometry.hpp"
+#include "rby1_msgs/srv/robot_parameter.hpp"
+#include "rby1_msgs/srv/set_digital_output.hpp"
+#include "rby1_msgs/srv/set_led.hpp"
+#include "rby1_msgs/srv/set_value.hpp"
 #include "rby1_msgs/srv/state_on_off.hpp"
+#include "std_srvs/srv/trigger.hpp"
 #include "sensor_msgs/msg/battery_state.hpp"
 
 namespace rby1_robot_manager
@@ -164,6 +174,10 @@ public:
     publish_battery_state_ = declare_parameter<bool>("publish_battery_state", true);
     publish_tool_flange_state_ = declare_parameter<bool>("publish_tool_flange_state", true);
     const auto read_period_sec = declare_parameter<double>("status_period_sec", 0.02);
+    stop_priority_ = declare_parameter<int>("stop_priority", 100);
+    jog_priority_ = declare_parameter<int>("jog_priority", 1);
+    allow_power_off_while_executing_ = declare_parameter<bool>("allow_power_off_while_executing", false);
+    const bool maintenance = declare_parameter<bool>("enable_maintenance_services", false);
 
     client_ = std::make_unique<Rby1RobotClient>(options);
     if (connect_on_start_) {
@@ -212,6 +226,76 @@ public:
         handle_control_manager(request, response);
       });
 
+    add_service<std_srvs::srv::Trigger>("stop", [this](auto, auto response) {
+        call(response, [this]() {return client_->stop(stop_priority_);});
+      });
+    add_service<std_srvs::srv::Trigger>("cancel_control", [this](auto, auto response) {
+        call(response, [this]() {return client_->cancel_control();});
+      });
+    add_service<rby1_msgs::srv::Jog>("jog", [this](auto request, auto response) {
+        call(response, [this, request, response]() {
+          rby1_hardware_interface::JogMode mode = rby1_hardware_interface::JogMode::kAbsolute;
+          if (request->mode == rby1_msgs::srv::Jog::Request::MODE_RELATIVE) {
+            mode = rby1_hardware_interface::JogMode::kRelative;
+          } else if (request->mode == rby1_msgs::srv::Jog::Request::MODE_ONE_STEP) {
+            mode = rby1_hardware_interface::JogMode::kOneStep;
+          }
+          return client_->jog(request->joint_name, mode, request->value, request->velocity_limit,
+            request->acceleration_limit, request->timeout, jog_priority_, response->finish_code);
+        });
+      });
+    add_service<rby1_msgs::srv::SetValue>("set_time_scale", [this](auto request, auto response) {
+        call(response, [this, request, response]() {return client_->set_time_scale(request->value, response->value);});
+      });
+    add_service<rby1_msgs::srv::SetLed>("set_led", [this](auto request, auto response) {
+        call(response, [this, request]() {
+          return client_->set_led(request->r, request->g, request->b, request->duration, request->transition_time,
+            request->blinking, request->blinking_frequency);
+        });
+      });
+    add_service<rby1_msgs::srv::SetDigitalOutput>("set_tool_flange_digital_output", [this](auto request, auto response) {
+        call(response, [this, request]() {
+          return client_->set_tool_flange_digital_output(request->side, request->channel, request->state);
+        });
+      });
+    add_service<rby1_msgs::srv::RobotParameter>("robot_parameter", [this](auto request, auto response) {
+        call(response, [this, request, response]() {
+          if (request->value.empty()) {
+            return client_->get_parameter(request->name, response->value);
+          }
+          response->value = request->value;
+          return client_->set_parameter(request->name, request->value, request->write_db);
+        });
+      });
+    add_service<rby1_msgs::srv::ResetOdometry>("reset_odometry", [this](auto request, auto response) {
+        call(response, [this, request]() {return client_->reset_odometry(request->x, request->y, request->yaw);});
+      });
+    add_service<rby1_msgs::srv::GetLogs>("get_logs", [this](auto request, auto response) {
+        call(response, [this, request, response]() {
+          return client_->get_logs(request->count, response->fault_logs, response->entries);
+        });
+      });
+    if (maintenance) {
+      RCLCPP_WARN(get_logger(), "Maintenance services enabled (PID gains, home offset, preset position)");
+      add_service<rby1_msgs::srv::PositionPidGain>("position_pid_gain", [this](auto request, auto response) {
+          call(response, [this, request, response]() {
+            rby1_hardware_interface::PidGains gains{request->p_gain, request->i_gain, request->d_gain};
+            auto r = request->set ? client_->set_position_pid_gain(request->device, gains) :
+            client_->get_position_pid_gain(request->device, gains);
+            response->p_gain = gains.p;
+            response->i_gain = gains.i;
+            response->d_gain = gains.d;
+            return r;
+          });
+        });
+      add_service<rby1_msgs::srv::JointOperation>("joint_operation", [this](auto request, auto response) {
+          call(response, [this, request]() {
+            return request->operation == rby1_msgs::srv::JointOperation::Request::OP_HOME_OFFSET_RESET ?
+            client_->home_offset_reset(request->joint_name) : client_->set_preset_position(request->joint_name);
+          });
+        });
+    }
+
     if (publish_status_) {
       const auto period = std::chrono::duration<double>(std::max(0.005, read_period_sec));
       status_timer_ = create_wall_timer(
@@ -221,6 +305,49 @@ public:
   }
 
 private:
+  template <typename ServiceT, typename CallbackT>
+  void add_service(const std::string & name, CallbackT callback)
+  {
+    services_.push_back(create_service<ServiceT>(
+        name,
+        [callback](const std::shared_ptr<typename ServiceT::Request> request,
+        std::shared_ptr<typename ServiceT::Response> response) {callback(request, response);}));
+  }
+
+  // Run `command` with the client lock held and copy its result into the response.
+  template <typename ResponseT, typename CommandT>
+  void call(const std::shared_ptr<ResponseT> & response, CommandT command)
+  {
+    std::lock_guard<std::mutex> lock(client_mutex_);
+    try {
+      if (!ensure_connected()) {
+        response->success = false;
+        response->message = "robot client is not connected";
+        return;
+      }
+      const auto r = command();
+      response->success = r.success;
+      response->message = r.message;
+    } catch (const std::exception & e) {
+      response->success = false;
+      response->message = e.what();
+    }
+  }
+
+  bool refuse_while_executing(const std::string & what, bool turning_off, std::string & message)
+  {
+    if (!turning_off || allow_power_off_while_executing_) {
+      return false;
+    }
+    const auto snapshot = client_->read_state();
+    if (snapshot.control_state == 2) {
+      message = what + " off refused: a command is executing (deactivate the controllers or the ros2_control "
+        "hardware first, or set allow_power_off_while_executing)";
+      return true;
+    }
+    return false;
+  }
+
   bool ensure_connected()
   {
     if (client_->is_connected()) {
@@ -273,6 +400,10 @@ private:
     const std::shared_ptr<rby1_msgs::srv::StateOnOff::Response> response)
   {
     execute_service(request, response, [this](const auto request_handle) {
+      std::string message;
+      if (refuse_while_executing("power", !request_handle->state, message)) {
+        return CommandResult{false, message};
+      }
       return client_->set_power(normalize_power_selector(request_handle->parameters), request_handle->state);
     });
   }
@@ -282,6 +413,10 @@ private:
     const std::shared_ptr<rby1_msgs::srv::StateOnOff::Response> response)
   {
     execute_service(request, response, [this](const auto request_handle) {
+      std::string message;
+      if (refuse_while_executing("servo", !request_handle->state, message)) {
+        return CommandResult{false, message};
+      }
       return client_->set_servo(normalize_servo_selector(request_handle->parameters), request_handle->state);
     });
   }
@@ -345,6 +480,8 @@ private:
         command = ControlManagerCommand::kDisable;
       } else if (request->command == rby1_msgs::srv::ControlManagerCommand::Request::CMD_RESET) {
         command = ControlManagerCommand::kResetFault;
+      } else if (request->command == rby1_msgs::srv::ControlManagerCommand::Request::CMD_ENABLE_UNLIMITED) {
+        command = ControlManagerCommand::kEnableUnlimited;
       } else {
         response->success = false;
         response->message = "unsupported control manager command";
@@ -389,6 +526,9 @@ private:
   {
     rby1_msgs::msg::RobotState message;
     message.control_manager_state = snapshot.control_manager_state;
+    message.control_state = snapshot.control_state;
+    message.time_scale = snapshot.time_scale;
+    message.unlimited_mode_enabled = snapshot.unlimited_mode_enabled;
     message.brake_state.left_arm = snapshot.brakes.left_arm;
     message.brake_state.right_arm = snapshot.brakes.right_arm;
     message.brake_state.torso = snapshot.brakes.torso;
@@ -438,6 +578,10 @@ private:
   rclcpp::Service<rby1_msgs::srv::GravityCompensation>::SharedPtr gravity_compensation_service_;
   rclcpp::Service<rby1_msgs::srv::ControlManagerCommand>::SharedPtr control_manager_service_;
   rclcpp::TimerBase::SharedPtr status_timer_;
+  std::vector<rclcpp::ServiceBase::SharedPtr> services_;
+  int stop_priority_{100};
+  int jog_priority_{1};
+  bool allow_power_off_while_executing_{false};
 };
 
 }  // namespace rby1_robot_manager

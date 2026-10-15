@@ -1,0 +1,16 @@
+# Jog one joint with the SDK JogCommand (a whole-robot command: it preempts the ros2_control
+# command stream, so the robot manager refuses it while a controller is driving the robot).
+uint8 MODE_ABSOLUTE = 0   # move to `value` [rad]
+uint8 MODE_RELATIVE = 1   # move by `value` [rad]
+uint8 MODE_ONE_STEP = 2   # one jog step; direction = value > 0
+
+string joint_name
+uint8 mode
+float64 value
+float64 velocity_limit      # [rad/s], 0: SDK default
+float64 acceleration_limit  # [rad/s^2], 0: SDK default
+float64 timeout             # [s] to wait for the motion to finish, 0: do not wait
+---
+bool success
+string message
+int32 finish_code

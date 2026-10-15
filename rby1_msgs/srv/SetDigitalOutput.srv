@@ -1,0 +1,7 @@
+# Tool flange digital output.
+string side      # right | left
+uint32 channel   # 0 or 1
+bool state
+---
+bool success
+string message

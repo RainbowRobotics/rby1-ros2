@@ -13,6 +13,7 @@ find_package(rby1_hardware_interface REQUIRED)
 find_package(rby1_msgs REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(std_srvs REQUIRED)
 
 add_executable(rby1_robot_manager_node
   src/rby1_robot_manager_node.cpp
@@ -22,6 +23,7 @@ ament_target_dependencies(rby1_robot_manager_node
   rby1_msgs
   rclcpp
   sensor_msgs
+  std_srvs
 )
 
 install(

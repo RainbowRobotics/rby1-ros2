@@ -1,0 +1,8 @@
+# Joint maintenance operation on `joint_name`.
+uint8 OP_HOME_OFFSET_RESET = 0
+uint8 OP_SET_PRESET_POSITION = 1
+string joint_name
+uint8 operation
+---
+bool success
+string message

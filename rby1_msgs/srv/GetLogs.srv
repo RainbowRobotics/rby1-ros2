@@ -1,0 +1,7 @@
+# Robot logs: the fault log file list and the last `count` log entries.
+uint32 count
+---
+bool success
+string message
+string[] fault_logs
+string[] entries

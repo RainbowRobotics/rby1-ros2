@@ -19,3 +19,12 @@ bool emo_state
 
 # Center of mass in meters.
 float64[3] center_of_mass
+
+# Control state of the control manager: 0 unknown, 1 idle, 2 executing, 3 switching.
+int32 control_state
+
+# Time scale of the control manager (speed scaling, 0..1).
+float64 time_scale
+
+# Whether the control manager runs with joint limits disabled.
+bool unlimited_mode_enabled

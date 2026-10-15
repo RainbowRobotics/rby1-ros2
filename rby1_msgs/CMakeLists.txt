@@ -14,6 +14,15 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/ToolFlangeState.msg"
   "srv/ControlManagerCommand.srv"
   "srv/GravityCompensation.srv"
+  "srv/GetLogs.srv"
+  "srv/Jog.srv"
+  "srv/JointOperation.srv"
+  "srv/PositionPidGain.srv"
+  "srv/ResetOdometry.srv"
+  "srv/RobotParameter.srv"
+  "srv/SetDigitalOutput.srv"
+  "srv/SetLed.srv"
+  "srv/SetValue.srv"
   "srv/StateOnOff.srv"
 )
 
