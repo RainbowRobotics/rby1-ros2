@@ -2,23 +2,26 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>rby1_hardware_interface</name>
-  <version>0.1.0</version>
-  <description>ros2_control hardware interface for RBY1 robots.</description>
+  <version>0.2.0</version>
+  <description>
+    ros2_control system interface for RB-Y1 robots (A, M, UB). Exposes every rby1-sdk motion controller
+    (joint position, joint group position, joint impedance, gravity compensation, joint/SE2 velocity,
+    Cartesian, Cartesian impedance, impedance, optimal control) as ros2_control command modes.
+    Requires the rby1-sdk C++ library (scripts/install_rby1_sdk.sh).
+  </description>
   <maintainer email="support@rainbow-robotics.com">Rainbow Robotics</maintainer>
   <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
+  <depend>eigen</depend>
   <depend>hardware_interface</depend>
   <depend>pluginlib</depend>
   <depend>rclcpp</depend>
   <depend>rclcpp_lifecycle</depend>
-  <depend>eigen</depend>
+  <depend>urdf</depend>
 
-  <exec_depend>python3-rby1-sdk</exec_depend>
-
-  <test_depend>ament_lint_auto</test_depend>
-  <test_depend>ament_lint_common</test_depend>
+  <test_depend>ament_cmake_gtest</test_depend>
 
   <export>
     <build_type>ament_cmake</build_type>

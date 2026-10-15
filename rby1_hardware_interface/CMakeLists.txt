@@ -13,119 +13,74 @@ find_package(hardware_interface REQUIRED)
 find_package(pluginlib REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_lifecycle REQUIRED)
+find_package(urdf REQUIRED)
 find_package(Eigen3 REQUIRED)
 
-# ---- Locate rby1-sdk ---------------------------------------------------------
-# Resolution order:
-#   1) -DRBY1_SDK_ROOT=/path (user-provided install prefix)
-#   2) find_package(rby1-sdk CONFIG) if SDK ships CMake config files
-#   3) Python (pip-installed) fallback via importlib
-set(RBY1_SDK_ROOT "" CACHE PATH "Path to rby1-sdk install prefix (contains include/ and lib/)")
-
-find_package(rby1-sdk CONFIG QUIET)
-
-if(NOT RBY1_SDK_INCLUDE_DIR OR NOT RBY1_SDK_LIBRARY)
-  if(RBY1_SDK_ROOT)
-    find_path(RBY1_SDK_INCLUDE_DIR
-      NAMES "rby1-sdk/robot.h"
-      HINTS "${RBY1_SDK_ROOT}/include"
-      NO_DEFAULT_PATH
-    )
-    find_library(RBY1_SDK_LIBRARY
-      NAMES rby1-sdk rby1_sdk
-      HINTS "${RBY1_SDK_ROOT}/lib" "${RBY1_SDK_ROOT}/lib64"
-      NO_DEFAULT_PATH
-    )
-  endif()
+# rby1-sdk C++ library, installed with scripts/install_rby1_sdk.sh (CMake package
+# lib/cmake/rby1-sdk). Point CMake at it with CMAKE_PREFIX_PATH or -DRBY1_SDK_ROOT=<prefix>.
+set(RBY1_SDK_ROOT "" CACHE PATH "rby1-sdk install prefix (contains lib/cmake/rby1-sdk)")
+if(RBY1_SDK_ROOT)
+  list(PREPEND CMAKE_PREFIX_PATH "${RBY1_SDK_ROOT}")
+endif()
+list(APPEND CMAKE_PREFIX_PATH "/opt/rby1-sdk" "$ENV{HOME}/.local/rby1-sdk")
+find_package(rby1-sdk CONFIG REQUIRED)
+message(STATUS "rby1-sdk: ${rby1-sdk_DIR}")
+get_target_property(_rby1_sdk_location rby1-sdk::rby1-sdk IMPORTED_LOCATION_RELEASE)
+if(_rby1_sdk_location)
+  get_filename_component(RBY1_SDK_LIBRARY_DIR "${_rby1_sdk_location}" DIRECTORY)
 endif()
 
-if(NOT RBY1_SDK_INCLUDE_DIR OR NOT RBY1_SDK_LIBRARY)
-  find_package(Python3 REQUIRED COMPONENTS Interpreter)
-  execute_process(
-    COMMAND "${Python3_EXECUTABLE}" -c
-      "import importlib.util, pathlib; \
-spec = importlib.util.find_spec('rby1_sdk'); \
-print(pathlib.Path(spec.origin).parent if spec else '')"
-    OUTPUT_VARIABLE _rby1_sdk_py_dir
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-    RESULT_VARIABLE _rby1_sdk_py_result
-  )
-  execute_process(
-    COMMAND "${Python3_EXECUTABLE}" -c "import sys; print(sys.prefix)"
-    OUTPUT_VARIABLE _python_prefix
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-  )
-  if(_rby1_sdk_py_result EQUAL 0 AND _rby1_sdk_py_dir)
-    find_path(RBY1_SDK_INCLUDE_DIR
-      NAMES "rby1-sdk/robot.h"
-      HINTS "${_rby1_sdk_py_dir}/include" "${_python_prefix}/include"
-    )
-    find_library(RBY1_SDK_LIBRARY
-      NAMES rby1-sdk rby1_sdk
-      HINTS
-        "${_rby1_sdk_py_dir}/lib"
-        "${_rby1_sdk_py_dir}/libs"
-        "${_python_prefix}/lib"
-        "${_python_prefix}/lib64"
-    )
-  endif()
-endif()
+# SDK-independent command layer (modes, fake backend): unit-testable without a robot.
+add_library(rby1_command_core SHARED
+  src/command_modes.cpp
+  src/fake_robot_backend.cpp
+)
+target_include_directories(rby1_command_core PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+)
+find_package(Threads REQUIRED)
+target_link_libraries(rby1_command_core PUBLIC Threads::Threads)
 
-if(NOT RBY1_SDK_INCLUDE_DIR)
-  message(FATAL_ERROR
-    "rby1-sdk headers not found.\n"
-    "Pass -DRBY1_SDK_ROOT=<prefix>, install rby1-sdk CMake config, or 'pip install rby1-sdk'.")
-endif()
-if(NOT RBY1_SDK_LIBRARY)
-  message(FATAL_ERROR
-    "rby1-sdk shared library not found.\n"
-    "Pass -DRBY1_SDK_ROOT=<prefix>, install rby1-sdk CMake config, or 'pip install rby1-sdk'.")
-endif()
-message(STATUS "rby1-sdk include: ${RBY1_SDK_INCLUDE_DIR}")
-message(STATUS "rby1-sdk library: ${RBY1_SDK_LIBRARY}")
-# -----------------------------------------------------------------------------
+# rby1-sdk backend.
+add_library(rby1_sdk_backend SHARED
+  src/sdk_robot_backend.cpp
+)
+target_link_libraries(rby1_sdk_backend PUBLIC rby1_command_core PRIVATE rby1-sdk::rby1-sdk Eigen3::Eigen)
 
+# Non-real-time SDK client used by rby1_robot_manager.
 add_library(rby1_robot_client SHARED
   src/rby1_robot_client.cpp
 )
-target_include_directories(rby1_robot_client
-  PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    $<INSTALL_INTERFACE:include>
-  PRIVATE
-    "${RBY1_SDK_INCLUDE_DIR}"
+target_include_directories(rby1_robot_client PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
 )
-target_link_libraries(rby1_robot_client
-  PRIVATE
-    "${RBY1_SDK_LIBRARY}"
-    Eigen3::Eigen
-)
+target_link_libraries(rby1_robot_client PRIVATE rby1-sdk::rby1-sdk Eigen3::Eigen)
 
+# ros2_control plugin.
 add_library(rby1_system_interface SHARED
   src/rby1_system_interface.cpp
 )
-target_include_directories(rby1_system_interface
-  PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    $<INSTALL_INTERFACE:include>
-)
-ament_target_dependencies(rby1_system_interface
+target_link_libraries(rby1_system_interface PUBLIC rby1_command_core rby1_sdk_backend)
+ament_target_dependencies(rby1_system_interface PUBLIC
   hardware_interface
   pluginlib
   rclcpp
   rclcpp_lifecycle
+  urdf
 )
-target_link_libraries(rby1_system_interface rby1_robot_client)
+
+set_target_properties(rby1_sdk_backend rby1_robot_client rby1_system_interface PROPERTIES
+  INSTALL_RPATH "${RBY1_SDK_LIBRARY_DIR}"
+  BUILD_RPATH "${RBY1_SDK_LIBRARY_DIR}"
+)
 
 pluginlib_export_plugin_description_file(hardware_interface rby1_hardware_interface.xml)
 
+install(DIRECTORY include/ DESTINATION include)
 install(
-  DIRECTORY include/
-  DESTINATION include
-)
-
-install(
-  TARGETS rby1_robot_client rby1_system_interface
+  TARGETS rby1_command_core rby1_sdk_backend rby1_robot_client rby1_system_interface
   EXPORT export_${PROJECT_NAME}
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
@@ -133,13 +88,20 @@ install(
 )
 
 ament_export_include_directories(include)
-ament_export_libraries(rby1_robot_client rby1_system_interface)
+ament_export_libraries(rby1_command_core rby1_sdk_backend rby1_robot_client rby1_system_interface)
 ament_export_targets(export_${PROJECT_NAME} HAS_LIBRARY_TARGET)
-ament_export_dependencies(hardware_interface pluginlib rclcpp rclcpp_lifecycle)
+ament_export_dependencies(hardware_interface pluginlib rclcpp rclcpp_lifecycle urdf)
 
 if(BUILD_TESTING)
-  find_package(ament_lint_auto REQUIRED)
-  ament_lint_auto_find_test_dependencies()
+  find_package(ament_cmake_gtest REQUIRED)
+  find_package(ros2_control_test_assets QUIET)
+
+  ament_add_gtest(test_command_modes test/test_command_modes.cpp)
+  target_link_libraries(test_command_modes rby1_command_core)
+
+  ament_add_gtest(test_system_interface test/test_system_interface.cpp TIMEOUT 120 SKIP_LINKING_MAIN_LIBRARIES)
+  target_link_libraries(test_system_interface rby1_system_interface)
+  ament_target_dependencies(test_system_interface hardware_interface rclcpp)
 endif()
 
 ament_package()
