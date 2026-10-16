@@ -164,6 +164,13 @@ CallbackReturn Rby1SystemInterface::initialize(const hardware_interface::Hardwar
     stream_priority_ = static_cast<int>(parameters_.get_double("stream_priority", 1));
     send_timeout_ms_ = static_cast<int>(parameters_.get_double("send_timeout", 0.2) * 1000.0);
     max_consecutive_failures_ = static_cast<int>(parameters_.get_double("max_consecutive_failures", 10));
+    {
+      const auto policy = parameters_.get_string("on_stream_preempted", "stop");
+      if (policy != "stop" && policy != "resume") {
+        throw std::invalid_argument("on_stream_preempted must be 'stop' or 'resume'");
+      }
+      stop_on_preemption_ = policy == "stop";
+    }
     rt_max_step_ = parameters_.get_double("realtime.max_target_step", 0.004);
     rt_max_tracking_error_ = parameters_.get_double("realtime.max_tracking_error", 0.15);
     rt_stale_ticks_ = static_cast<int>(parameters_.get_double("realtime.stale_ticks", 25));
@@ -820,6 +827,8 @@ void Rby1SystemInterface::stream_loop()
   local.values.assign(slot_.values.size(), kNaN);
   std::vector<double> hold;
   int failures = 0;
+  std::array<int, kComponentCount> stream_structure{};
+  size_t sends_on_stream = 0;
   uint64_t logged_clamps = 0;
   auto last_clamp_log = std::chrono::steady_clock::now();
 
@@ -891,6 +900,17 @@ void Rby1SystemInterface::stream_loop()
       continue;
     }
 
+    // The robot fixes each component's controller type when a stream starts: a change of
+    // structure (e.g. joint position -> joint impedance, or the base joining) needs a new stream.
+    std::array<int, kComponentCount> structure{};
+    for (size_t i = 0; i < kComponentCount; ++i) {
+      structure[i] = static_cast<int>(request.components[i].index());
+    }
+    if (backend_->stream_open() && structure != stream_structure) {
+      RCLCPP_INFO(logger_, "Command structure changed; restarting the command stream");
+      backend_->close_stream();
+    }
+
     if (!backend_->stream_open()) {
       std::string message;
       if (!backend_->open_stream(stream_priority_, message)) {
@@ -901,14 +921,14 @@ void Rby1SystemInterface::stream_loop()
         continue;
       }
       ++stream_restarts_;
-      if (stream_restarts_ > 1) {
-        RCLCPP_WARN(logger_, "Command stream re-opened (%lu restarts)", static_cast<unsigned long>(stream_restarts_.load()));
-      }
+      stream_structure = structure;
+      sends_on_stream = 0;
     }
     const auto feedback = backend_->send(request, send_timeout_ms_);
     switch (feedback.status) {
       case StreamStatus::kOk:
         failures = 0;
+        ++sends_on_stream;
         stream_ok_ = true;
         break;
       case StreamStatus::kFault:
@@ -916,6 +936,16 @@ void Rby1SystemInterface::stream_loop()
         set_fatal("robot reported a control fault: " + feedback.message);
         break;
       case StreamStatus::kFinished:
+        if (sends_on_stream > 0 && stop_on_preemption_) {
+          // The driver renews the hold time every cycle, so a stream that was running only ends
+          // when another command takes over (robot manager stop or cancel, a higher-priority
+          // client). Do not take the robot back.
+          stream_ok_ = false;
+          set_fatal("the command stream was ended by another command (stop, cancel or a higher-priority "
+            "client); activate the hardware again to resume");
+          break;
+        }
+        [[fallthrough]];
       case StreamStatus::kTimeout:
       case StreamStatus::kError:
         stream_ok_ = false;
@@ -1059,7 +1089,12 @@ void Rby1SystemInterface::stop_streaming() noexcept
         }
       }
       if (!request.empty()) {
-        backend_->send(request, send_timeout_ms_);
+        // A different structure needs its own stream (see stream_loop).
+        backend_->close_stream();
+        std::string message;
+        if (backend_->open_stream(stream_priority_, message)) {
+          backend_->send(request, send_timeout_ms_);
+        }
       }
     }
     backend_->close_stream();

@@ -116,6 +116,9 @@ public:
   virtual bool set_parameter(const std::string & name, const std::string & value) = 0;
 
   // Command stream. send() blocks until the robot answers or timeout_ms elapses.
+  // The robot fixes the controller type of every component when a stream's control starts: a
+  // request with a different structure needs a new stream (close_stream() waits until the
+  // robot has finished the old control, so the new stream is not rejected as a lower priority).
   virtual bool open_stream(int priority, std::string & message) = 0;
   virtual bool stream_open() const = 0;
   virtual StreamFeedback send(const RobotCommandRequest & request, int timeout_ms) = 0;

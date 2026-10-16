@@ -36,7 +36,7 @@ std::vector<std::string> joint_names()
   return out;
 }
 
-std::string make_urdf(bool realtime = false)
+std::string make_urdf(bool realtime = false, const std::string & extra_params = "")
 {
   std::ostringstream u;
   u << "<?xml version=\"1.0\"?><robot name=\"rby1a\"><link name=\"base\"/>";
@@ -53,7 +53,7 @@ std::string make_urdf(bool realtime = false)
     << "<plugin>rby1_hardware_interface/Rby1SystemInterface</plugin>"
     << "<param name=\"model\">a</param><param name=\"backend\">fake</param>"
     << "<param name=\"command_rate\">200</param><param name=\"state_rate\">200</param>"
-    << "<param name=\"state_timeout\">0.5</param>"
+    << "<param name=\"state_timeout\">0.5</param>" << extra_params
     << "</hardware>";
   for (const auto & j : joint_names()) {
     u << "<joint name=\"" << j << "\">";
@@ -88,10 +88,11 @@ class SystemInterfaceTest : public ::testing::Test
 {
 protected:
   virtual bool realtime() const {return false;}
+  virtual std::string extra_params() const {return "";}
 
   void SetUp() override
   {
-    const auto infos = hardware_interface::parse_control_resources_from_urdf(make_urdf(realtime()));
+    const auto infos = hardware_interface::parse_control_resources_from_urdf(make_urdf(realtime(), extra_params()));
     ASSERT_EQ(infos.size(), 1u);
     info_ = infos[0];
     backend_ = std::make_shared<FakeRobotBackend>("a");
@@ -255,7 +256,37 @@ TEST_F(SystemInterfaceTest, BaseVelocityModes)
   ASSERT_TRUE(std::holds_alternative<SE2VelocityCommand>(backend_->sent_requests().back().at(Component::kMobility)));
 }
 
-TEST_F(SystemInterfaceTest, ReopensExpiredStream)
+TEST_F(SystemInterfaceTest, StopsWhenAnotherCommandEndsTheStream)
+{
+  ASSERT_TRUE(switch_to(arm("right", {"position"})));
+  run_for(100ms);
+  const auto opened = backend_->streams_opened();
+  backend_->inject_send_result(StreamStatus::kFinished);  // e.g. the robot manager's stop
+  run_for(200ms);
+  EXPECT_EQ(backend_->streams_opened(), opened);  // the robot is not taken back
+  EXPECT_EQ(cycle(), hardware_interface::return_type::ERROR);
+}
+
+TEST_F(SystemInterfaceTest, RestartsTheStreamWhenTheStructureChanges)
+{
+  ASSERT_TRUE(switch_to(arm("right", {"position"})));
+  run_for(100ms);
+  const auto opened = backend_->streams_opened();
+  // joint position -> joint impedance on the right arm needs a new stream on the robot
+  ASSERT_TRUE(switch_to(arm("right", {"position", "stiffness", "damping_ratio"}), arm("right", {"position"})));
+  run_for(200ms);
+  EXPECT_EQ(backend_->streams_opened(), opened + 1);
+  EXPECT_TRUE(std::holds_alternative<JointImpedanceCommand>(backend_->sent_requests().back().at(Component::kRightArm)));
+  EXPECT_EQ(cycle(), hardware_interface::return_type::OK);
+}
+
+class ResumeTest : public SystemInterfaceTest
+{
+protected:
+  std::string extra_params() const override {return "<param name=\"on_stream_preempted\">resume</param>";}
+};
+
+TEST_F(ResumeTest, ReopensAnEndedStreamWhenConfigured)
 {
   ASSERT_TRUE(switch_to(arm("right", {"position"})));
   run_for(100ms);

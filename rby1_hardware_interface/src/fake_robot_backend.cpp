@@ -180,6 +180,7 @@ bool FakeRobotBackend::open_stream(int, std::string & message)
     return false;
   }
   stream_open_ = true;
+  stream_has_structure_ = false;
   ++streams_opened_;
   return true;
 }
@@ -213,6 +214,20 @@ StreamFeedback FakeRobotBackend::send(const RobotCommandRequest & request, int)
   if (control_manager_ != ControlManagerStatus::kEnabled) {
     fb.status = StreamStatus::kFault;
     fb.message = "control manager fault";
+    stream_open_ = false;
+    return fb;
+  }
+  // Like the robot: the controller type of each component is fixed when the stream starts.
+  std::array<int, kComponentCount> structure{};
+  for (size_t i = 0; i < kComponentCount; ++i) {
+    structure[i] = static_cast<int>(request.components[i].index());
+  }
+  if (!stream_has_structure_) {
+    stream_structure_ = structure;
+    stream_has_structure_ = true;
+  } else if (structure != stream_structure_) {
+    fb.status = StreamStatus::kFinished;
+    fb.message = "command structure changed within a stream";
     stream_open_ = false;
     return fb;
   }

@@ -4,6 +4,7 @@
 // Joint commands are tracked with a velocity-limited first-order response; Cartesian
 // commands are accepted but do not move the joints.
 
+#include <array>
 #include <atomic>
 #include <condition_variable>
 #include <mutex>
@@ -67,6 +68,8 @@ private:
   std::vector<double> velocity_limit_;
   std::vector<bool> velocity_mode_;
   std::vector<RobotCommandRequest> sent_;
+  std::array<int, kComponentCount> stream_structure_{};
+  bool stream_has_structure_{false};
   StateCallback callback_;
   std::atomic<bool> running_{false};
   std::thread thread_;

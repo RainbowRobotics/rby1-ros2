@@ -17,6 +17,11 @@ power, servo or enable the robot unless `auto_enable:=true`.
 | Real-time loop: target change per 2 ms tick | 0.004 rad | 2 rad/s; the value the system-identification tool used on the robot |
 | Real-time loop: target within `realtime.max_tracking_error`, feedback gain 0-10, feedforward within URDF effort | 0.15 rad | |
 
+A stop or cancel from the robot manager (or any other client) ends the driver's stream; the driver
+then stops (hardware error) and does not resume until the hardware is activated again
+(`on_stream_preempted: stop`, default). Recover with `ros2 control set_hardware_component_state
+RBY1System active` after checking the robot.
+
 The robot manager refuses power or servo off while a command is executing (unless
 `allow_power_off_while_executing`), and jog while a command executes.
 

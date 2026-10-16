@@ -104,6 +104,7 @@ private:
   int stream_priority_{1};
   int send_timeout_ms_{200};
   int max_consecutive_failures_{10};
+  bool stop_on_preemption_{true};
   ReadyOptions ready_options_;
 
   // Joints and gpios in hardware-info order.

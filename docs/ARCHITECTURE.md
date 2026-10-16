@@ -62,7 +62,17 @@ blocking locks:
   when their last mode ended (or at activation). The mobile base is never held.
 - Every command carries `control_hold_time` (default 1 s): if the driver stops sending, the robot
   stops executing within that time.
-- A finished or expired stream is re-opened on the next cycle; repeated failures, a control
+- The robot fixes the controller type of each component when a stream's control starts; commands
+  with another structure in the same stream are ignored or end the stream. When the structure of
+  the request changes (a mode switch, or the base joining), the stream thread cancels the stream,
+  waits until the control manager has ended it, and opens a new one. Measured in the MuJoCo
+  simulator the joints move less than 0.5 mrad across such a restart.
+- A running stream is only ended by another command, because the driver renews the hold time
+  every cycle. With `on_stream_preempted: stop` (default) the driver then stops and reports a
+  hardware error instead of taking the robot back, so the robot manager's stop sticks; `resume`
+  re-opens the stream.
+- A stream rejected at its first command (another control with the same or a higher priority is
+  active) is retried; repeated failures, a control
   manager fault, an emergency stop or stale state (`state_timeout`) stop streaming and make
   `read()`/`write()` return ERROR, which the controller manager turns into deactivating the hardware.
 

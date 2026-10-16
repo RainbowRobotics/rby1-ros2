@@ -5,6 +5,7 @@
 
 #include <cmath>
 #include <atomic>
+#include <chrono>
 #include <mutex>
 #include <thread>
 #include <stdexcept>
@@ -417,6 +418,7 @@ public:
     std::lock_guard<std::mutex> lock(mutex_);
     require_robot();
     try {
+      sends_on_stream_ = 0;
       stream_ = robot_->CreateCommandStream(priority);
     } catch (const std::exception & e) {
       message = e.what();
@@ -456,6 +458,7 @@ public:
     }
     try {
       const auto feedback = stream_->SendCommand(command, timeout_ms);
+      const bool first = sends_on_stream_++ == 0;
       result.finish_code = static_cast<int32_t>(feedback.finish_code());
       if (feedback.status() == rb::RobotCommandFeedback::Status::kFinished) {
         if (feedback.finish_code() == rb::RobotCommandFeedback::FinishCode::kControlManagerFault) {
@@ -464,6 +467,10 @@ public:
         } else {
           result.status = StreamStatus::kFinished;
           result.message = "stream finished (finish code " + std::to_string(result.finish_code) + ")";
+          if (first && feedback.finish_code() == rb::RobotCommandFeedback::FinishCode::kCanceled) {
+            result.message += ": rejected; another control with the same or a higher priority is active "
+              "(raise stream_priority or cancel it with the robot manager)";
+          }
         }
         stream_.reset();
       }
@@ -491,10 +498,22 @@ public:
     if (stream_) {
       try {
         stream_->Cancel();
+        stream_->WaitFor(1000);
+      } catch (...) {
+      }
+      stream_.reset();
+      // The control manager ends the stream's control asynchronously; a new stream with the
+      // same priority is rejected while it is still executing.
+      try {
+        for (int i = 0; i < 50 && robot_; ++i) {
+          if (robot_->GetControlManagerState().control_state != rb::ControlManagerState::ControlState::kExecuting) {
+            break;
+          }
+          std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        }
       } catch (...) {
       }
     }
-    stream_.reset();
   }
 
   bool start_realtime(RealtimeCallback callback, int priority, std::string & message) override
@@ -647,6 +666,7 @@ private:
   mutable std::mutex mutex_;
   std::shared_ptr<rb::Robot<Model>> robot_;
   std::unique_ptr<rb::RobotCommandStreamHandler<Model>> stream_;
+  size_t sends_on_stream_{0};
   bool state_stream_running_{false};
   std::thread rt_thread_;
   std::atomic<bool> rt_stop_{false};

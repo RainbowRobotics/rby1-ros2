@@ -8,6 +8,9 @@ controller_manager:
       type: rby1_controllers/JointStreamController
     torso_impedance_controller:
       type: rby1_controllers/JointStreamController
+    # JTC on a subset of the torso joints -> SDK JointGroupPositionCommand
+    torso_group_controller:
+      type: joint_trajectory_controller/JointTrajectoryController
     torso_gravity_compensation_controller:
       type: rby1_controllers/GravityCompensationController
     torso_cartesian_controller:
@@ -87,3 +90,19 @@ body_realtime_controller:
     mode: realtime
     feedback_gain: 10.0
     command_timeout: 0.5
+
+torso_group_controller:
+  ros__parameters:
+    joints:
+      - torso_5
+    command_interfaces:
+      - position
+    state_interfaces:
+      - position
+      - velocity
+    state_publish_rate: 50.0
+    action_monitor_rate: 20.0
+    allow_partial_joints_goal: false
+    constraints:
+      stopped_velocity_tolerance: 0.05
+      goal_time: 0.5
