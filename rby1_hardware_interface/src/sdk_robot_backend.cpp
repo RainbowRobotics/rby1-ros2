@@ -4,6 +4,7 @@
 #include <Eigen/Geometry>
 
 #include <cmath>
+#include <functional>
 #include <atomic>
 #include <chrono>
 #include <mutex>
@@ -368,14 +369,36 @@ public:
   {
     std::lock_guard<std::mutex> lock(mutex_);
     require_robot();
+    // PowerOn/ServoOn return when the request is accepted; the state follows later (48 V
+    // ramp-up on the robot, simulation ticks in the simulator), so wait for it.
+    auto wait_for = [](const std::function<bool()> & done, double seconds) {
+        const auto end = std::chrono::steady_clock::now() + std::chrono::duration<double>(seconds);
+        while (!done()) {
+          if (std::chrono::steady_clock::now() > end) {
+            return false;
+          }
+          std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        }
+        return true;
+      };
     if (!robot_->IsPowerOn(options.power_selector)) {
-      if (!options.auto_enable || !robot_->PowerOn(options.power_selector)) {
+      // The control manager faults if power changes while it is enabled: power up first.
+      if (options.auto_enable &&
+        robot_->GetControlManagerState().state == rb::ControlManagerState::State::kEnabled)
+      {
+        robot_->DisableControlManager();
+      }
+      if (!options.auto_enable || !robot_->PowerOn(options.power_selector) ||
+        !wait_for([&]() {return robot_->IsPowerOn(options.power_selector);}, options.enable_timeout))
+      {
         message = "power '" + options.power_selector + "' is off";
         return false;
       }
     }
     if (!robot_->IsServoOn(options.servo_selector)) {
-      if (!options.auto_enable || !robot_->ServoOn(options.servo_selector)) {
+      if (!options.auto_enable || !robot_->ServoOn(options.servo_selector) ||
+        !wait_for([&]() {return robot_->IsServoOn(options.servo_selector);}, options.enable_timeout))
+      {
         message = "servo '" + options.servo_selector + "' is off";
         return false;
       }

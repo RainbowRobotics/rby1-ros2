@@ -100,7 +100,7 @@ private:
   std::string backend_type_;
   double state_rate_{200.0};
   double command_rate_{100.0};
-  double state_timeout_{0.1};
+  double state_timeout_{0.25};
   int stream_priority_{1};
   int send_timeout_ms_{200};
   int max_consecutive_failures_{10};

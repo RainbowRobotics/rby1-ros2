@@ -181,7 +181,7 @@
 
   <!-- ===== hardware ==================================================================== -->
 
-  <xacro:macro name="rby1_hardware" params="model robot_ip use_mock_hardware backend auto_enable command_rate state_rate">
+  <xacro:macro name="rby1_hardware" params="model robot_ip use_mock_hardware backend auto_enable command_rate state_rate state_timeout:=0.25">
     <hardware>
       <xacro:if value="${use_mock_hardware}">
         <plugin>mock_components/GenericSystem</plugin>
@@ -194,6 +194,9 @@
         <param name="auto_enable">${auto_enable}</param>
         <param name="command_rate">${command_rate}</param>
         <param name="state_rate">${state_rate}</param>
+        <!-- Stop when no robot state arrived for this long [s] (the simulator core pauses its state
+             stream for ~0.1 s when it starts a Cartesian impedance control). -->
+        <param name="state_timeout">${state_timeout}</param>
         <!-- Values validated on the real robot (100 Hz stream, rby1_lab deploy runtime). -->
         <param name="minimum_time">0.1</param>
         <param name="control_hold_time">1.0</param>

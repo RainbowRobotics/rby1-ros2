@@ -7,6 +7,9 @@ r.cancel_control(); time.sleep(0.3)
 cm = r.get_control_manager_state()
 if cm.state in (sdk.ControlManagerState.State.MinorFault, sdk.ControlManagerState.State.MajorFault):
     print("reset fault", r.reset_fault_control_manager())
-if r.get_control_manager_state().state != sdk.ControlManagerState.State.Enabled:
+# Enable only a powered, servoed robot (enabling first and powering later faults the control
+# manager); otherwise leave it to the driver's auto_enable.
+if r.is_power_on(".*") and r.is_servo_on(".*") and \
+        r.get_control_manager_state().state != sdk.ControlManagerState.State.Enabled:
     print("enable", r.enable_control_manager())
 print("cm", r.get_control_manager_state().state, r.get_control_manager_state().control_state)

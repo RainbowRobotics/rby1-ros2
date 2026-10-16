@@ -72,6 +72,7 @@ struct ReadyOptions
   std::string servo_selector{".*"};
   bool reset_minor_fault{true};
   int control_ready_timeout_ms{2000};
+  double enable_timeout{10.0};      // seconds to wait for power/servo to report on
 };
 
 // Real-time control (Robot::Control, UDP at the robot's 2 ms period), robot joint order.

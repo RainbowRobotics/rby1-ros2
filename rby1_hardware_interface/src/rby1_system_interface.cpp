@@ -160,7 +160,7 @@ CallbackReturn Rby1SystemInterface::initialize(const hardware_interface::Hardwar
     backend_type_ = parameters_.get_string("backend", "sdk");
     state_rate_ = parameters_.get_double("state_rate", 200.0);
     command_rate_ = parameters_.get_double("command_rate", 100.0);
-    state_timeout_ = parameters_.get_double("state_timeout", 0.1);
+    state_timeout_ = parameters_.get_double("state_timeout", 0.25);
     stream_priority_ = static_cast<int>(parameters_.get_double("stream_priority", 1));
     send_timeout_ms_ = static_cast<int>(parameters_.get_double("send_timeout", 0.2) * 1000.0);
     max_consecutive_failures_ = static_cast<int>(parameters_.get_double("max_consecutive_failures", 10));
@@ -179,6 +179,7 @@ CallbackReturn Rby1SystemInterface::initialize(const hardware_interface::Hardwar
     ready_options_.power_selector = parameters_.get_string("power_selector", ".*");
     ready_options_.servo_selector = parameters_.get_string("servo_selector", ".*");
     ready_options_.reset_minor_fault = parameters_.get_bool("reset_minor_fault", true);
+    ready_options_.enable_timeout = parameters_.get_double("enable_timeout", 10.0);
     if (backend_type_ != "sdk" && backend_type_ != "fake") {
       throw std::invalid_argument("parameter 'backend' must be 'sdk' or 'fake'");
     }

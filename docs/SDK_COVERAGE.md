@@ -18,10 +18,10 @@ Checked against rby1-sdk v0.10.0 (`robot_command_builder.h`, `protos/rb/api/*`, 
 | OptimalControlCommand | torso, body | `optimal_control` | `TaskSpaceController` | done |
 | StopCommand | whole body | robot manager `~/stop` | — | done |
 | JogCommand | one joint | robot manager `~/jog` | — | done |
-| RealTimeControlCommand (`Robot::Control`, UDP 2 ms) | torso, arms, head (exclusive) | mode `realtime` (real-time loop instead of the stream) | `JointStreamController` (realtime), `realtime:=true` | done, fake tested; **sim/robot validation open** |
+| RealTimeControlCommand (`Robot::Control`, UDP 2 ms) | torso, arms, head (exclusive) | mode `realtime` (real-time loop instead of the stream) | `JointStreamController` (realtime), `realtime:=true` | done, validated in both simulators; **robot validation open** |
 
-All modes are exercised against the fake backend. Behaviour on the robot and in the simulator core
-(trajectories, gains, switching transients) still has to be validated per mode.
+All modes run against the fake backend in the unit tests and were validated in the MuJoCo and Isaac Sim
+simulator cores ([VALIDATION.md](VALIDATION.md)); behaviour on the real robot is still to be validated.
 
 ## Gripper
 
@@ -59,6 +59,5 @@ reset of parameters. The leader arm is a teleoperation device, not a robot contr
    position, velocity, force) exists in the robot core and the protos but not in `rb::Robot`. The
    driver would need its own gRPC stubs built from the SDK protos and linked against the same gRPC
    version the SDK uses privately, and the RPC has no position feedback for `GripperCommand` results.
-3. **Mode-switch transients.** Switching SDK controllers on one stream is supported by the protocol,
-   but the core's behaviour during `kSwitching` (jumps, delay) still has to be measured in the
-   simulator for every pair of modes.
+3. **Mode switches.** The robot fixes each component's controller type per stream, so the driver
+   restarts the stream on a change; measured in both simulators the joints move less than 0.5 mrad.

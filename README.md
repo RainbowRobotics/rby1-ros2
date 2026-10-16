@@ -110,6 +110,7 @@ Stop and jog are whole-robot commands and live in the robot manager (`/rby1/stop
 - [docs/SDK_COVERAGE.md](docs/SDK_COVERAGE.md): every rby1-sdk controller and API, and where it is exposed
 - [docs/ISAAC_ROS.md](docs/ISAAC_ROS.md): running the Isaac ROS gear-assembly policy on RB-Y1
 - [docs/SAFETY.md](docs/SAFETY.md): guards, limits and the real-robot facts behind them
+- [docs/VALIDATION.md](docs/VALIDATION.md): results in the MuJoCo and Isaac Sim simulator cores
 - [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md): UPC native and Docker deployment
 - [docs/ADDING_A_MODE.md](docs/ADDING_A_MODE.md): adding a new SDK controller
 

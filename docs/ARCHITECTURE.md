@@ -93,7 +93,7 @@ controllers join it. When the mode ends the loop finishes and the stream resumes
 | `backend` | `sdk` | sdk or fake |
 | `auto_enable` | `false` | power on, servo on, enable the control manager on activation |
 | `state_rate` / `command_rate` | 200 / 100 Hz | SDK state stream / command stream rates |
-| `state_timeout` | 0.1 s | stale-state limit while streaming |
+| `state_timeout` | 0.25 s | stale-state limit while streaming |
 | `stream_priority` | 1 | command stream priority |
 | `minimum_time`, `control_hold_time`, `acceleration_limit`, `velocity_limit_scale`, `velocity_limit` | 0.1 s, 1 s, 2 rad/s², 0.5 x URDF, — | joint command timing and limits; prefix with a mode name (`joint_impedance.minimum_time`) to override per mode |
 | `max_tracking_error`, `max_step` | 0.15 rad, 0.05 rad | guards (see SAFETY.md) |
