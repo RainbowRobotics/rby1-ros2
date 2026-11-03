@@ -18,7 +18,6 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "srv/Jog.srv"
   "srv/JointOperation.srv"
   "srv/PositionPidGain.srv"
-  "srv/ResetOdometry.srv"
   "srv/RobotParameter.srv"
   "srv/SetDigitalOutput.srv"
   "srv/SetLed.srv"

@@ -137,7 +137,6 @@ public:
   virtual CommandResult set_tool_flange_digital_output(const std::string & side, unsigned int channel, bool state) = 0;
   virtual CommandResult get_parameter(const std::string & name, std::string & value) = 0;
   virtual CommandResult set_parameter(const std::string & name, const std::string & value, bool write_db) = 0;
-  virtual CommandResult reset_odometry(double x, double y, double yaw) = 0;
   virtual CommandResult get_logs(
     unsigned int count, std::vector<std::string> & fault_logs, std::vector<std::string> & entries) = 0;
   virtual CommandResult get_position_pid_gain(const std::string & device, PidGains & gains) = 0;
@@ -476,14 +475,6 @@ public:
     return result(ok, ok ? (write_db ? "parameter set and saved" : "parameter set") : "SetParameter failed");
   }
 
-  CommandResult reset_odometry(double x, double y, double yaw) override
-  {
-    std::lock_guard<std::mutex> lock(mutex_);
-    require_connected();
-    const bool ok = robot_->ResetOdometry(yaw, Eigen::Vector2d(x, y));
-    return result(ok, ok ? "odometry reset" : "ResetOdometry failed");
-  }
-
   CommandResult get_logs(
     unsigned int count, std::vector<std::string> & fault_logs, std::vector<std::string> & entries) override
   {
@@ -693,7 +684,6 @@ CommandResult Rby1RobotClient::set_parameter(const std::string & name, const std
 {
   return impl_->set_parameter(name, value, write_db);
 }
-CommandResult Rby1RobotClient::reset_odometry(double x, double y, double yaw) {return impl_->reset_odometry(x, y, yaw);}
 CommandResult Rby1RobotClient::get_logs(
   unsigned int count, std::vector<std::string> & fault_logs, std::vector<std::string> & entries)
 {

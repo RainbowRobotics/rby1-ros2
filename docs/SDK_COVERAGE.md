@@ -34,7 +34,7 @@ simulator cores ([VALIDATION.md](VALIDATION.md)); behaviour on the real robot is
 
 Done: power, servo, brake engage/release, control manager enable (with unlimited mode) / disable /
 reset fault, cancel control, time scale, tool flange voltage and digital outputs, LED, robot
-parameters (get/set, `write_db` explicit), odometry reset, fault log list and last logs, gravity
+parameters (get/set, `write_db` explicit), fault log list and last logs, gravity
 compensation (one-shot). Maintenance services (`enable_maintenance_services:=true`): position PID
 gains, home offset reset, preset position.
 
@@ -42,6 +42,9 @@ Not exposed (robot administration, not driver functions): Wi-Fi and network sett
 battery configuration, robot model import, file download, gamepad upload, serial streams, factory
 reset of parameters. The leader arm is a teleoperation device, not a robot controller; it can feed
 `JointStreamController` from its own node.
+
+`ResetOdometry` is not exposed: it makes `odom` jump, and REP 105 requires the `odom` frame to be
+continuous. Re-localize in `map → odom` (AMCL, SLAM) instead.
 
 ## Open items
 

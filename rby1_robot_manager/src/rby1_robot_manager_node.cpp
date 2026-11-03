@@ -32,7 +32,6 @@
 #include "rby1_msgs/srv/jog.hpp"
 #include "rby1_msgs/srv/joint_operation.hpp"
 #include "rby1_msgs/srv/position_pid_gain.hpp"
-#include "rby1_msgs/srv/reset_odometry.hpp"
 #include "rby1_msgs/srv/robot_parameter.hpp"
 #include "rby1_msgs/srv/set_digital_output.hpp"
 #include "rby1_msgs/srv/set_led.hpp"
@@ -295,10 +294,6 @@ public:
             response->value = request->value;
             return client_->set_parameter(request->name, request->value, request->write_db);
           });
-      });
-    add_service<rby1_msgs::srv::ResetOdometry>(
-      "reset_odometry", [this](auto request, auto response) {
-        call(response, [this, request]() {return client_->reset_odometry(request->x, request->y, request->yaw);});
       });
     add_service<rby1_msgs::srv::GetLogs>(
       "get_logs", [this](auto request, auto response) {

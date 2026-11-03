@@ -159,7 +159,6 @@ public:
   CommandResult set_tool_flange_digital_output(const std::string & side, unsigned int channel, bool state);
   CommandResult get_parameter(const std::string & name, std::string & value);
   CommandResult set_parameter(const std::string & name, const std::string & value, bool write_db);
-  CommandResult reset_odometry(double x, double y, double yaw);
   CommandResult get_logs(unsigned int count, std::vector<std::string> & fault_logs, std::vector<std::string> & entries);
 
   // Maintenance (the robot manager only offers these with enable_maintenance_services).
