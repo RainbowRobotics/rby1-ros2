@@ -8,7 +8,7 @@
     joint impedance streaming (Isaac ROS compatible), gravity compensation, SE2 base velocity and
     task-space (Cartesian, Cartesian impedance, impedance, optimal control) targets.
   </description>
-  <maintainer email="support@rainbow-robotics.com">Rainbow Robotics</maintainer>
+  <maintainer email="jinseok.kim970@gmail.com">Jinseok Kim</maintainer>
   <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>

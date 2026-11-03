@@ -9,10 +9,13 @@
     Cartesian, Cartesian impedance, impedance, optimal control) as ros2_control command modes.
     Requires the rby1-sdk C++ library (scripts/install_rby1_sdk.sh).
   </description>
-  <maintainer email="support@rainbow-robotics.com">Rainbow Robotics</maintainer>
+  <maintainer email="jinseok.kim970@gmail.com">Jinseok Kim</maintainer>
   <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <!-- Also needs the rby1-sdk C++ library, which has no rosdep key:
+       install it with scripts/install_rby1_sdk.sh (see README). -->
 
   <depend>eigen</depend>
   <depend>hardware_interface</depend>

@@ -4,7 +4,7 @@
   <name>rby1_robot_manager</name>
   <version>0.1.0</version>
   <description>Non-real-time management services and status topics for RBY1.</description>
-  <maintainer email="support@rainbow-robotics.com">Rainbow Robotics</maintainer>
+  <maintainer email="jinseok.kim970@gmail.com">Jinseok Kim</maintainer>
   <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>

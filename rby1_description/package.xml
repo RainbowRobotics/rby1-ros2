@@ -4,12 +4,15 @@
   <name>rby1_description</name>
   <version>0.1.0</version>
   <description>Xacro robot descriptions for the RBY1 ROS 2 control driver.</description>
-  <maintainer email="support@rainbow-robotics.com">Rainbow Robotics</maintainer>
+  <maintainer email="jinseok.kim970@gmail.com">Jinseok Kim</maintainer>
   <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
   <build_depend>xacro</build_depend>
   <exec_depend>xacro</exec_depend>
+  <exec_depend>ament_index_python</exec_depend>
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
   <exec_depend>robot_state_publisher</exec_depend>
 
   <test_depend>ament_lint_auto</test_depend>

@@ -28,6 +28,7 @@
 | `rby1_description` | URDF/xacro for A (v1.0-1.2), M (v1.0-1.3) and UB with the `ros2_control` blocks |
 | `rby1_bringup` | Launch files and controller configurations |
 | `rby1_msgs` | Status messages and manager services |
+| `rby1_robot` | Metapackage that depends on all of the above |
 
 ## Build
 

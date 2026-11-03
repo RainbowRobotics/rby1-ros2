@@ -4,7 +4,7 @@
   <name>rby1_bringup</name>
   <version>0.2.0</version>
   <description>Launch and controller configuration for the RBY1 ROS 2 control driver.</description>
-  <maintainer email="support@rainbow-robotics.com">Rainbow Robotics</maintainer>
+  <maintainer email="jinseok.kim970@gmail.com">Jinseok Kim</maintainer>
   <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
@@ -19,6 +19,9 @@
   <exec_depend>velocity_controllers</exec_depend>
   <exec_depend>joint_state_broadcaster</exec_depend>
   <exec_depend>hardware_interface</exec_depend>
+  <exec_depend>ament_index_python</exec_depend>
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
   <exec_depend>robot_state_publisher</exec_depend>
   <exec_depend>rby1_description</exec_depend>
   <exec_depend>rby1_hardware_interface</exec_depend>

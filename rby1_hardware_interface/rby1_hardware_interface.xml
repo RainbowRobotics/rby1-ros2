@@ -3,6 +3,6 @@
     name="rby1_hardware_interface/Rby1SystemInterface"
     type="rby1_hardware_interface::Rby1SystemInterface"
     base_class_type="hardware_interface::SystemInterface">
-    <description>State-only ros2_control SystemInterface for RBY1 robots.</description>
+    <description>ros2_control SystemInterface for RB-Y1 robots: state and every rby1-sdk motion controller as command modes.</description>
   </class>
 </library>

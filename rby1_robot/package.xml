@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>rby1_robot</name>
+  <version>0.2.0</version>
+  <description>Metapackage for the RB-Y1 ROS 2 control driver (REP 144): depends on every package of the driver.</description>
+  <maintainer email="jinseok.kim970@gmail.com">Jinseok Kim</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <exec_depend>rby1_bringup</exec_depend>
+  <exec_depend>rby1_controllers</exec_depend>
+  <exec_depend>rby1_description</exec_depend>
+  <exec_depend>rby1_gripper_hardware</exec_depend>
+  <exec_depend>rby1_hardware_interface</exec_depend>
+  <exec_depend>rby1_msgs</exec_depend>
+  <exec_depend>rby1_robot_manager</exec_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
