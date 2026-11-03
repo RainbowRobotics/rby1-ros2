@@ -28,7 +28,7 @@
 namespace rby1_hardware_interface
 {
 
-template <typename T>
+template<typename T>
 class TripleBuffer
 {
 public:

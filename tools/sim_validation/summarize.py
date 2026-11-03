@@ -13,11 +13,17 @@
 # limitations under the License.
 
 """Print RESULT lines of validate.py compactly."""
-import json, sys
+import json
+import sys
+
+KEYS = ("error", "moved", "rate", "age", "drift", "distance", "wheel", "rise", "overshoot", "success", "hardware",
+        "status", "->")
+
 for line in sys.stdin:
     if not line.startswith("RESULT"):
-        print(line.rstrip()); continue
-    d = json.loads(line[7:]); t = d.pop("test")
-    keys = [k for k in d if any(s in k for s in ("error", "moved", "rate", "age", "drift", "distance", "wheel", "rise",
-                                                  "overshoot", "success", "hardware", "status", "->"))]
+        print(line.rstrip())
+        continue
+    d = json.loads(line[7:])
+    t = d.pop("test")
+    keys = [k for k in d if any(s in k for s in KEYS)]
     print(t, json.dumps({k: d[k] for k in keys} if keys else d, default=str)[:700])

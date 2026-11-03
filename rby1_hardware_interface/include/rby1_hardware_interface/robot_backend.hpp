@@ -111,7 +111,7 @@ struct RealtimeInput
 class RobotBackend
 {
 public:
-  using StateCallback = std::function<void(const StateSample &)>;
+  using StateCallback = std::function<void (const StateSample &)>;
 
   virtual ~RobotBackend() = default;
 
@@ -144,7 +144,7 @@ public:
 
   // Real-time loop on a backend thread; `callback` runs every control period and fills the input.
   // The loop is exclusive: the command stream must be closed first.
-  using RealtimeCallback = std::function<void(const RealtimeState &, RealtimeInput &)>;
+  using RealtimeCallback = std::function<void (const RealtimeState &, RealtimeInput &)>;
   virtual bool start_realtime(RealtimeCallback callback, int priority, std::string & message) = 0;
   virtual void stop_realtime() noexcept = 0;  // ends the loop with finish and joins it
   virtual bool realtime_running() const = 0;

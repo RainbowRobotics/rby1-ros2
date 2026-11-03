@@ -14,9 +14,11 @@
 
 #pragma once
 
+#include <algorithm>
 #include <atomic>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "controller_interface/controller_interface.hpp"

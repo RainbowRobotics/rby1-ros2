@@ -37,8 +37,12 @@ std::vector<size_t> range(size_t begin, size_t end)
 std::vector<std::string> body_names(const std::vector<std::string> & torso)
 {
   std::vector<std::string> out = torso;
-  for (int i = 0; i < 7; ++i) {out.push_back("right_arm_" + std::to_string(i));}
-  for (int i = 0; i < 7; ++i) {out.push_back("left_arm_" + std::to_string(i));}
+  for (int i = 0; i < 7; ++i) {
+    out.push_back("right_arm_" + std::to_string(i));
+  }
+  for (int i = 0; i < 7; ++i) {
+    out.push_back("left_arm_" + std::to_string(i));
+  }
   out.push_back("head_0");
   out.push_back("head_1");
   return out;
@@ -102,8 +106,9 @@ FakeRobotBackend::~FakeRobotBackend()
   stop_state_stream();
 }
 
-RobotDescription FakeRobotBackend::connect(double)
+RobotDescription FakeRobotBackend::connect(double timeout_sec)
 {
+  (void)timeout_sec;  // the in-memory robot connects at once
   std::lock_guard<std::mutex> lock(mutex_);
   connected_ = true;
   return description_;
@@ -132,33 +137,34 @@ void FakeRobotBackend::start_state_stream(double rate_hz, StateCallback callback
   }
   running_ = true;
   const auto period = std::chrono::duration<double>(1.0 / std::max(1.0, rate_hz));
-  thread_ = std::thread([this, period]() {
-        auto next = std::chrono::steady_clock::now();
-        while (running_) {
-          next += std::chrono::duration_cast<std::chrono::steady_clock::duration>(period);
-          StateSample sample;
-          StateCallback cb;
-          {
-            std::lock_guard<std::mutex> lock(mutex_);
-            step(period.count());
-            sample.received = std::chrono::steady_clock::now();
-            sample.robot_time = std::chrono::duration<double>(sample.received.time_since_epoch()).count();
-            sample.position = position_;
-            sample.velocity = velocity_;
-            sample.torque.assign(position_.size(), 0.0);
-            sample.current.assign(position_.size(), 0.0);
-            sample.is_ready.assign(position_.size(), ready_);
-            sample.control_manager = control_manager_;
-            sample.control = stream_open_ ? ControlStatus::kExecuting : ControlStatus::kIdle;
-            sample.emo_pressed = emo_;
-            cb = callback_;
-          }
-          if (cb) {
-            cb(sample);
-          }
-          std::this_thread::sleep_until(next);
+  thread_ = std::thread(
+    [this, period]() {
+      auto next = std::chrono::steady_clock::now();
+      while (running_) {
+        next += std::chrono::duration_cast<std::chrono::steady_clock::duration>(period);
+        StateSample sample;
+        StateCallback cb;
+        {
+          std::lock_guard<std::mutex> lock(mutex_);
+          step(period.count());
+          sample.received = std::chrono::steady_clock::now();
+          sample.robot_time = std::chrono::duration<double>(sample.received.time_since_epoch()).count();
+          sample.position = position_;
+          sample.velocity = velocity_;
+          sample.torque.assign(position_.size(), 0.0);
+          sample.current.assign(position_.size(), 0.0);
+          sample.is_ready.assign(position_.size(), ready_);
+          sample.control_manager = control_manager_;
+          sample.control = stream_open_ ? ControlStatus::kExecuting : ControlStatus::kIdle;
+          sample.emo_pressed = emo_;
+          cb = callback_;
         }
-      });
+        if (cb) {
+          cb(sample);
+        }
+        std::this_thread::sleep_until(next);
+      }
+    });
 }
 
 void FakeRobotBackend::stop_state_stream() noexcept
@@ -256,7 +262,7 @@ StreamFeedback FakeRobotBackend::send(const RobotCommandRequest & request, int)
         for (size_t k = 0; k < ids.size() && k < pos.size(); ++k) {
           target_[ids[k]] = pos[k];
           velocity_mode_[ids[k]] = false;
-          velocity_limit_[ids[k]] = k < vel.size() && vel[k] > 0.0 ? vel[k] : 1.0;
+          velocity_limit_[ids[k]] = k<vel.size() && vel[k]>0.0 ? vel[k] : 1.0;
         }
       };
     if (const auto * c = std::get_if<JointPositionCommand>(&command)) {
@@ -307,7 +313,8 @@ bool FakeRobotBackend::start_realtime(RealtimeCallback callback, int, std::strin
   }
   rt_stop_ = false;
   rt_running_ = true;
-  rt_thread_ = std::thread([this, cb = std::move(callback)]() {
+  rt_thread_ = std::thread(
+    [this, cb = std::move(callback)]() {
       const size_t n = description_.joint_names.size();
       RealtimeState state;
       RealtimeInput input;

@@ -28,6 +28,7 @@
 #include <memory>
 #include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "rby1_hardware_interface/command_types.hpp"
@@ -114,7 +115,8 @@ struct ModeBinding
 class CommandMode
 {
 public:
-  explicit CommandMode(ModeBinding binding) : binding_(std::move(binding)) {}
+  explicit CommandMode(ModeBinding binding)
+  : binding_(std::move(binding)) {}
   virtual ~CommandMode() = default;
 
   virtual const char * name() const = 0;

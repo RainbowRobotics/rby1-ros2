@@ -12,13 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Bring up the RB-Y1 ros2_control driver.
+"""
+Bring up the RB-Y1 ros2_control driver.
 
 Starts robot_state_publisher, the controller manager with the RB-Y1 hardware interface (and the
 gripper hardware if gripper:=true), joint_state_broadcaster, every RB-Y1 controller loaded
 inactive, and the robot manager. Controllers listed in ``activate_controllers`` are activated.
 
-Examples:
+For example::
+
   ros2 launch rby1_bringup rby1_control.launch.py robot_ip:=192.168.30.1:50051 model:=a
   ros2 launch rby1_bringup rby1_control.launch.py backend:=fake model:=a     # no robot needed
   ros2 launch rby1_bringup rby1_control.launch.py activate_controllers:="right_arm_impedance_controller"

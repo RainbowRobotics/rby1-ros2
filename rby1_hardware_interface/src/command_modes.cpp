@@ -51,9 +51,10 @@ std::optional<Component> component_from_string(const std::string & name)
 
 bool RobotCommandRequest::empty() const
 {
-  return std::all_of(components.begin(), components.end(), [](const ComponentCommand & c) {
-             return std::holds_alternative<std::monostate>(c);
-           });
+  return std::all_of(
+    components.begin(), components.end(), [](const ComponentCommand & c) {
+      return std::holds_alternative<std::monostate>(c);
+    });
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -857,7 +858,8 @@ class CartesianMode : public CartesianGpioMode
 {
 public:
   explicit CartesianMode(ModeBinding binding)
-  : CartesianGpioMode(std::move(binding), {"linear_velocity_limit", "angular_velocity_limit", "acceleration_limit_scaling"})
+  : CartesianGpioMode(std::move(
+        binding), {"linear_velocity_limit", "angular_velocity_limit", "acceleration_limit_scaling"})
   {
   }
   const char * name() const override {return "cartesian";}
@@ -910,7 +912,9 @@ public:
       if (a == std::string::npos || a == b) {
         throw std::invalid_argument("joint_limits entry '" + item + "' must be 'joint:lower:upper'");
       }
-      c.joint_limits.push_back({item.substr(0, a), std::stod(item.substr(a + 1, b - a - 1)), std::stod(item.substr(b + 1))});
+      c.joint_limits.push_back(
+        {item.substr(0, a), std::stod(item.substr(a + 1, b - a - 1)),
+          std::stod(item.substr(b + 1))});
     }
     if (p.has("nullspace_position")) {
       NullspaceTarget n;
@@ -1121,9 +1125,10 @@ private:
 
 bool has_all(const std::vector<JointEntry> & joints, const std::vector<size_t> & ids, size_t JointEntry::* slot)
 {
-  return !ids.empty() && std::all_of(ids.begin(), ids.end(), [&](size_t id) {
-             return joints[id].*slot != kNoInterface;
-           });
+  return !ids.empty() && std::all_of(
+    ids.begin(), ids.end(), [&](size_t id) {
+      return joints[id].*slot != kNoInterface;
+    });
 }
 
 }  // namespace
@@ -1182,10 +1187,11 @@ std::vector<std::unique_ptr<CommandMode>> make_modes(
         b.joint_ids.push_back(id);
       }
     }
-    const bool all = !b.joint_ids.empty() && std::all_of(b.joint_ids.begin(), b.joint_ids.end(), [&](size_t id) {
-          return joints[id].cmd_position != kNoInterface && joints[id].cmd_effort != kNoInterface &&
-          joints[id].cmd_feedback_gain != kNoInterface;
-        });
+    const bool all = !b.joint_ids.empty() && std::all_of(
+      b.joint_ids.begin(), b.joint_ids.end(), [&](size_t id) {
+        return joints[id].cmd_position != kNoInterface && joints[id].cmd_effort != kNoInterface &&
+        joints[id].cmd_feedback_gain != kNoInterface;
+      });
     if (all) {
       modes.push_back(std::make_unique<RealtimeMode>(b));
     }

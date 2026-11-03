@@ -176,7 +176,9 @@ CallbackReturn BaseVelocityController::on_activate(const rclcpp_lifecycle::State
   return CallbackReturn::SUCCESS;
 }
 
-controller_interface::return_type BaseVelocityController::update(const rclcpp::Time & time, const rclcpp::Duration & period)
+controller_interface::return_type BaseVelocityController::update(
+  const rclcpp::Time & time,
+  const rclcpp::Duration & period)
 {
   Velocity v = *velocity_.readFromRT();
   if (v.stamp_ns == 0 || (timeout_ > 0.0 && (time.nanoseconds() - v.stamp_ns) * 1e-9 > timeout_)) {
@@ -393,7 +395,8 @@ bool TaskSpaceController::transform(
     out = tf_buffer_->transform(stamped, ref, tf2::durationFromSec(0.1)).pose;
     return true;
   } catch (const std::exception & e) {
-    RCLCPP_WARN_THROTTLE(get_node()->get_logger(), *get_node()->get_clock(), 2000,
+    RCLCPP_WARN_THROTTLE(
+      get_node()->get_logger(), *get_node()->get_clock(), 2000,
       "Cannot transform target from '%s' to '%s': %s", in.header.frame_id.c_str(), ref.c_str(), e.what());
     return false;
   }

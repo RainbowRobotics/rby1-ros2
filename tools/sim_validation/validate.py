@@ -14,7 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Exercise every RB-Y1 controller against a running driver (simulator core) and report numbers.
+"""
+Exercise every RB-Y1 controller against a running driver (simulator core) and report numbers.
 
   python3 validate.py <test> [<test> ...]     tests: state jtc stream impedance gravity base cartesian
                                               cartesian_impedance impedance_pose optimal group switch stop realtime
@@ -326,7 +327,8 @@ def t_base(v):
 
 
 def pose_of(tr):
-    return [tr.translation.x, tr.translation.y, tr.translation.z], [tr.rotation.x, tr.rotation.y, tr.rotation.z, tr.rotation.w]
+    position = [tr.translation.x, tr.translation.y, tr.translation.z]
+    return position, [tr.rotation.x, tr.rotation.y, tr.rotation.z, tr.rotation.w]
 
 
 def task_test(v, controller, ref, link, offset, name, extra_targets=None, com=False):
@@ -383,7 +385,8 @@ def t_cartesian_impedance(v):
 
 
 def t_impedance_pose(v):
-    task_test(v, "right_arm_impedance_pose_controller", "base", "ee_right", [0.0, 0.0, 0.05], "impedance_pose_right_arm")
+    task_test(v, "right_arm_impedance_pose_controller", "base", "ee_right", [0.0, 0.0, 0.05],
+              "impedance_pose_right_arm")
 
 
 def t_optimal(v):
@@ -451,7 +454,7 @@ def t_switch(v):
 
 
 def t_stop(v):
-    """Manager stop while the impedance controller streams."""
+    """Send a manager stop while the impedance controller streams."""
     stop = v.create_client(Trigger, "/rby1/stop")
     assert v.switch(["right_arm_impedance_controller"])
     time.sleep(1.0)
@@ -461,7 +464,7 @@ def t_stop(v):
     r = v.call(stop, Trigger.Request())
     time.sleep(2.0)
     hw = subprocess.run(["ros2", "control", "list_hardware_components"], capture_output=True, text=True).stdout
-    state = [l.strip() for l in hw.splitlines() if "state" in l.lower()]
+    state = [line.strip() for line in hw.splitlines() if "state" in line.lower()]
     # does the driver still command the arm? (a resumed stream would keep it on its target)
     active = v.active_controllers()
     v.switch([])

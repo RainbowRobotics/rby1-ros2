@@ -98,6 +98,14 @@ ament_export_targets(export_${PROJECT_NAME} HAS_LIBRARY_TARGET)
 ament_export_dependencies(hardware_interface pluginlib rclcpp rclcpp_lifecycle urdf)
 
 if(BUILD_TESTING)
+  # Linters (ament_lint_common); C++, Python and CMake use a 120 column limit.
+  # cppcheck is skipped: Humble ships a slow version and it misreads the gtest macros.
+  find_package(ament_lint_auto REQUIRED)
+  list(APPEND AMENT_LINT_AUTO_EXCLUDE ament_cmake_cppcheck ament_cmake_cpplint ament_cmake_flake8 ament_cmake_uncrustify)
+  ament_lint_auto_find_test_dependencies()
+  ament_cpplint(MAX_LINE_LENGTH 120)
+  ament_uncrustify(MAX_LINE_LENGTH 120)
+
   find_package(ament_cmake_gtest REQUIRED)
   find_package(ros2_control_test_assets QUIET)
 

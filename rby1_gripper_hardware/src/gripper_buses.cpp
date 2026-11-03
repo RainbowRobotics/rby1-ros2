@@ -39,7 +39,8 @@ using namespace std::chrono_literals;
 class DynamixelGripperBus final : public GripperBus
 {
 public:
-  explicit DynamixelGripperBus(std::string device) : device_(std::move(device)) {}
+  explicit DynamixelGripperBus(std::string device)
+  : device_(std::move(device)) {}
 
   std::string open() override
   {
@@ -202,7 +203,7 @@ private:
   std::map<int, Motor> state_;
 };
 
-template <typename Model>
+template<typename Model>
 bool set_voltage(const std::string & address, int voltage, std::string & error)
 {
   auto robot = rb::Robot<Model>::Create(address);

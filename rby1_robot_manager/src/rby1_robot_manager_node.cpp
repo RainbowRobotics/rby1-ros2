@@ -54,12 +54,14 @@ using rby1_hardware_interface::Rby1RobotClient;
 
 std::string trim(const std::string & value)
 {
-  const auto first = std::find_if_not(value.begin(), value.end(), [](unsigned char character) {
-    return std::isspace(character) != 0;
-  });
-  const auto last = std::find_if_not(value.rbegin(), value.rend(), [](unsigned char character) {
-    return std::isspace(character) != 0;
-  }).base();
+  const auto first = std::find_if_not(
+    value.begin(), value.end(), [](unsigned char character) {
+      return std::isspace(character) != 0;
+    });
+  const auto last = std::find_if_not(
+    value.rbegin(), value.rend(), [](unsigned char character) {
+      return std::isspace(character) != 0;
+    }).base();
   if (first >= last) {
     return "";
   }
@@ -206,107 +208,127 @@ public:
     robot_power_service_ = create_service<rby1_msgs::srv::StateOnOff>(
       "robot_power",
       [this](const std::shared_ptr<rby1_msgs::srv::StateOnOff::Request> request,
-             std::shared_ptr<rby1_msgs::srv::StateOnOff::Response> response) {
+      std::shared_ptr<rby1_msgs::srv::StateOnOff::Response> response) {
         handle_power(request, response);
       });
     robot_servo_service_ = create_service<rby1_msgs::srv::StateOnOff>(
       "robot_servo",
       [this](const std::shared_ptr<rby1_msgs::srv::StateOnOff::Request> request,
-             std::shared_ptr<rby1_msgs::srv::StateOnOff::Response> response) {
+      std::shared_ptr<rby1_msgs::srv::StateOnOff::Response> response) {
         handle_servo(request, response);
       });
     motor_brake_service_ = create_service<rby1_msgs::srv::StateOnOff>(
       "set_motor_brake",
       [this](const std::shared_ptr<rby1_msgs::srv::StateOnOff::Request> request,
-             std::shared_ptr<rby1_msgs::srv::StateOnOff::Response> response) {
+      std::shared_ptr<rby1_msgs::srv::StateOnOff::Response> response) {
         handle_brake(request, response);
       });
     tool_flange_service_ = create_service<rby1_msgs::srv::StateOnOff>(
       "tool_flange_power",
       [this](const std::shared_ptr<rby1_msgs::srv::StateOnOff::Request> request,
-             std::shared_ptr<rby1_msgs::srv::StateOnOff::Response> response) {
+      std::shared_ptr<rby1_msgs::srv::StateOnOff::Response> response) {
         handle_tool_flange(request, response);
       });
     gravity_compensation_service_ = create_service<rby1_msgs::srv::GravityCompensation>(
       "gravity_compensation",
       [this](const std::shared_ptr<rby1_msgs::srv::GravityCompensation::Request> request,
-             std::shared_ptr<rby1_msgs::srv::GravityCompensation::Response> response) {
+      std::shared_ptr<rby1_msgs::srv::GravityCompensation::Response> response) {
         handle_gravity_compensation(request, response);
       });
     control_manager_service_ = create_service<rby1_msgs::srv::ControlManagerCommand>(
       "control_manager_command",
       [this](const std::shared_ptr<rby1_msgs::srv::ControlManagerCommand::Request> request,
-             std::shared_ptr<rby1_msgs::srv::ControlManagerCommand::Response> response) {
+      std::shared_ptr<rby1_msgs::srv::ControlManagerCommand::Response> response) {
         handle_control_manager(request, response);
       });
 
-    add_service<std_srvs::srv::Trigger>("stop", [this](auto, auto response) {
+    add_service<std_srvs::srv::Trigger>(
+      "stop", [this](auto, auto response) {
         call(response, [this]() {return client_->stop(stop_priority_);});
       });
-    add_service<std_srvs::srv::Trigger>("cancel_control", [this](auto, auto response) {
+    add_service<std_srvs::srv::Trigger>(
+      "cancel_control", [this](auto, auto response) {
         call(response, [this]() {return client_->cancel_control();});
       });
-    add_service<rby1_msgs::srv::Jog>("jog", [this](auto request, auto response) {
-        call(response, [this, request, response]() {
-          rby1_hardware_interface::JogMode mode = rby1_hardware_interface::JogMode::kAbsolute;
-          if (request->mode == rby1_msgs::srv::Jog::Request::MODE_RELATIVE) {
-            mode = rby1_hardware_interface::JogMode::kRelative;
-          } else if (request->mode == rby1_msgs::srv::Jog::Request::MODE_ONE_STEP) {
-            mode = rby1_hardware_interface::JogMode::kOneStep;
-          }
-          return client_->jog(request->joint_name, mode, request->value, request->velocity_limit,
-            request->acceleration_limit, request->timeout, jog_priority_, response->finish_code);
-        });
+    add_service<rby1_msgs::srv::Jog>(
+      "jog", [this](auto request, auto response) {
+        call(
+          response, [this, request, response]() {
+            rby1_hardware_interface::JogMode mode = rby1_hardware_interface::JogMode::kAbsolute;
+            if (request->mode == rby1_msgs::srv::Jog::Request::MODE_RELATIVE) {
+              mode = rby1_hardware_interface::JogMode::kRelative;
+            } else if (request->mode == rby1_msgs::srv::Jog::Request::MODE_ONE_STEP) {
+              mode = rby1_hardware_interface::JogMode::kOneStep;
+            }
+            return client_->jog(
+              request->joint_name, mode, request->value, request->velocity_limit,
+              request->acceleration_limit, request->timeout, jog_priority_, response->finish_code);
+          });
       });
-    add_service<rby1_msgs::srv::SetValue>("set_time_scale", [this](auto request, auto response) {
+    add_service<rby1_msgs::srv::SetValue>(
+      "set_time_scale", [this](auto request, auto response) {
         call(response, [this, request, response]() {return client_->set_time_scale(request->value, response->value);});
       });
-    add_service<rby1_msgs::srv::SetLed>("set_led", [this](auto request, auto response) {
-        call(response, [this, request]() {
-          return client_->set_led(request->r, request->g, request->b, request->duration, request->transition_time,
-            request->blinking, request->blinking_frequency);
-        });
+    add_service<rby1_msgs::srv::SetLed>(
+      "set_led", [this](auto request, auto response) {
+        call(
+          response, [this, request]() {
+            return client_->set_led(
+              request->r, request->g, request->b, request->duration, request->transition_time,
+              request->blinking, request->blinking_frequency);
+          });
       });
-    add_service<rby1_msgs::srv::SetDigitalOutput>("set_tool_flange_digital_output", [this](auto request, auto response) {
-        call(response, [this, request]() {
-          return client_->set_tool_flange_digital_output(request->side, request->channel, request->state);
-        });
+    add_service<rby1_msgs::srv::SetDigitalOutput>(
+      "set_tool_flange_digital_output", [this](auto request, auto response) {
+        call(
+          response, [this, request]() {
+            return client_->set_tool_flange_digital_output(request->side, request->channel, request->state);
+          });
       });
-    add_service<rby1_msgs::srv::RobotParameter>("robot_parameter", [this](auto request, auto response) {
-        call(response, [this, request, response]() {
-          if (request->value.empty()) {
-            return client_->get_parameter(request->name, response->value);
-          }
-          response->value = request->value;
-          return client_->set_parameter(request->name, request->value, request->write_db);
-        });
+    add_service<rby1_msgs::srv::RobotParameter>(
+      "robot_parameter", [this](auto request, auto response) {
+        call(
+          response, [this, request, response]() {
+            if (request->value.empty()) {
+              return client_->get_parameter(request->name, response->value);
+            }
+            response->value = request->value;
+            return client_->set_parameter(request->name, request->value, request->write_db);
+          });
       });
-    add_service<rby1_msgs::srv::ResetOdometry>("reset_odometry", [this](auto request, auto response) {
+    add_service<rby1_msgs::srv::ResetOdometry>(
+      "reset_odometry", [this](auto request, auto response) {
         call(response, [this, request]() {return client_->reset_odometry(request->x, request->y, request->yaw);});
       });
-    add_service<rby1_msgs::srv::GetLogs>("get_logs", [this](auto request, auto response) {
-        call(response, [this, request, response]() {
-          return client_->get_logs(request->count, response->fault_logs, response->entries);
-        });
+    add_service<rby1_msgs::srv::GetLogs>(
+      "get_logs", [this](auto request, auto response) {
+        call(
+          response, [this, request, response]() {
+            return client_->get_logs(request->count, response->fault_logs, response->entries);
+          });
       });
     if (maintenance) {
       RCLCPP_WARN(get_logger(), "Maintenance services enabled (PID gains, home offset, preset position)");
-      add_service<rby1_msgs::srv::PositionPidGain>("position_pid_gain", [this](auto request, auto response) {
-          call(response, [this, request, response]() {
-            rby1_hardware_interface::PidGains gains{request->p_gain, request->i_gain, request->d_gain};
-            auto r = request->set ? client_->set_position_pid_gain(request->device, gains) :
-            client_->get_position_pid_gain(request->device, gains);
-            response->p_gain = gains.p;
-            response->i_gain = gains.i;
-            response->d_gain = gains.d;
-            return r;
-          });
+      add_service<rby1_msgs::srv::PositionPidGain>(
+        "position_pid_gain", [this](auto request, auto response) {
+          call(
+            response, [this, request, response]() {
+              rby1_hardware_interface::PidGains gains{request->p_gain, request->i_gain, request->d_gain};
+              auto r = request->set ? client_->set_position_pid_gain(request->device, gains) :
+              client_->get_position_pid_gain(request->device, gains);
+              response->p_gain = gains.p;
+              response->i_gain = gains.i;
+              response->d_gain = gains.d;
+              return r;
+            });
         });
-      add_service<rby1_msgs::srv::JointOperation>("joint_operation", [this](auto request, auto response) {
-          call(response, [this, request]() {
-            return request->operation == rby1_msgs::srv::JointOperation::Request::OP_HOME_OFFSET_RESET ?
-            client_->home_offset_reset(request->joint_name) : client_->set_preset_position(request->joint_name);
-          });
+      add_service<rby1_msgs::srv::JointOperation>(
+        "joint_operation", [this](auto request, auto response) {
+          call(
+            response, [this, request]() {
+              return request->operation == rby1_msgs::srv::JointOperation::Request::OP_HOME_OFFSET_RESET ?
+              client_->home_offset_reset(request->joint_name) : client_->set_preset_position(request->joint_name);
+            });
         });
     }
 
@@ -314,22 +336,23 @@ public:
       const auto period = std::chrono::duration<double>(std::max(0.005, read_period_sec));
       status_timer_ = create_wall_timer(
         std::chrono::duration_cast<std::chrono::nanoseconds>(period),
-        [this]() { publish_status(); });
+        [this]() {publish_status();});
     }
   }
 
 private:
-  template <typename ServiceT, typename CallbackT>
+  template<typename ServiceT, typename CallbackT>
   void add_service(const std::string & name, CallbackT callback)
   {
-    services_.push_back(create_service<ServiceT>(
+    services_.push_back(
+      create_service<ServiceT>(
         name,
         [callback](const std::shared_ptr<typename ServiceT::Request> request,
         std::shared_ptr<typename ServiceT::Response> response) {callback(request, response);}));
   }
 
   // Run `command` with the client lock held and copy its result into the response.
-  template <typename ResponseT, typename CommandT>
+  template<typename ResponseT, typename CommandT>
   void call(const std::shared_ptr<ResponseT> & response, CommandT command)
   {
     std::lock_guard<std::mutex> lock(client_mutex_);
@@ -387,7 +410,7 @@ private:
     }
   }
 
-  template <typename RequestT, typename ResponseT, typename CallbackT>
+  template<typename RequestT, typename ResponseT, typename CallbackT>
   void execute_service(
     const std::shared_ptr<RequestT> request,
     const std::shared_ptr<ResponseT> response,
@@ -413,46 +436,50 @@ private:
     const std::shared_ptr<rby1_msgs::srv::StateOnOff::Request> request,
     const std::shared_ptr<rby1_msgs::srv::StateOnOff::Response> response)
   {
-    execute_service(request, response, [this](const auto request_handle) {
-      std::string message;
-      if (refuse_while_executing("power", !request_handle->state, message)) {
-        return CommandResult{false, message};
-      }
-      return client_->set_power(normalize_power_selector(request_handle->parameters), request_handle->state);
-    });
+    execute_service(
+      request, response, [this](const auto request_handle) {
+        std::string message;
+        if (refuse_while_executing("power", !request_handle->state, message)) {
+          return CommandResult{false, message};
+        }
+        return client_->set_power(normalize_power_selector(request_handle->parameters), request_handle->state);
+      });
   }
 
   void handle_servo(
     const std::shared_ptr<rby1_msgs::srv::StateOnOff::Request> request,
     const std::shared_ptr<rby1_msgs::srv::StateOnOff::Response> response)
   {
-    execute_service(request, response, [this](const auto request_handle) {
-      std::string message;
-      if (refuse_while_executing("servo", !request_handle->state, message)) {
-        return CommandResult{false, message};
-      }
-      return client_->set_servo(normalize_servo_selector(request_handle->parameters), request_handle->state);
-    });
+    execute_service(
+      request, response, [this](const auto request_handle) {
+        std::string message;
+        if (refuse_while_executing("servo", !request_handle->state, message)) {
+          return CommandResult{false, message};
+        }
+        return client_->set_servo(normalize_servo_selector(request_handle->parameters), request_handle->state);
+      });
   }
 
   void handle_brake(
     const std::shared_ptr<rby1_msgs::srv::StateOnOff::Request> request,
     const std::shared_ptr<rby1_msgs::srv::StateOnOff::Response> response)
   {
-    execute_service(request, response, [this](const auto request_handle) {
-      const auto selector = normalize_servo_selector(request_handle->parameters);
-      return client_->set_brake(selector, request_handle->state);
-    });
+    execute_service(
+      request, response, [this](const auto request_handle) {
+        const auto selector = normalize_servo_selector(request_handle->parameters);
+        return client_->set_brake(selector, request_handle->state);
+      });
   }
 
   void handle_tool_flange(
     const std::shared_ptr<rby1_msgs::srv::StateOnOff::Request> request,
     const std::shared_ptr<rby1_msgs::srv::StateOnOff::Response> response)
   {
-    execute_service(request, response, [this](const auto request_handle) {
-      return client_->set_tool_flange_output_voltage(
-        parse_tool_voltage(request_handle->parameters, request_handle->state));
-    });
+    execute_service(
+      request, response, [this](const auto request_handle) {
+        return client_->set_tool_flange_output_voltage(
+          parse_tool_voltage(request_handle->parameters, request_handle->state));
+      });
   }
 
   void handle_gravity_compensation(

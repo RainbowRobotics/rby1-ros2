@@ -12,7 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Probe an RBY1 robot for its model name and version.
+"""
+Probe an RBY1 robot for its model name and version.
 
 Uses the rby1_probe executable of rby1_hardware_interface (C++ rby1-sdk), and falls back to
 the rby1-sdk Python bindings when the executable is not available.
@@ -47,7 +48,8 @@ def _probe_executable() -> Optional[str]:
     try:
         from ament_index_python.packages import get_package_prefix
 
-        path = os.path.join(get_package_prefix("rby1_hardware_interface"), "lib", "rby1_hardware_interface", "rby1_probe")
+        prefix = get_package_prefix("rby1_hardware_interface")
+        path = os.path.join(prefix, "lib", "rby1_hardware_interface", "rby1_probe")
         return path if os.access(path, os.X_OK) else None
     except Exception:
         return None
@@ -67,7 +69,8 @@ def _probe_cpp(executable: str, robot_ip: str, connect_timeout_sec: float) -> Tu
 def detect_model_and_version(
     robot_ip: str, connect_timeout_sec: float
 ) -> Tuple[str, Optional[str]]:
-    """Connect to ``robot_ip`` and return ``(model, version)``.
+    """
+    Connect to ``robot_ip`` and return ``(model, version)``.
 
     ``model`` is normalized to ``'a'``, ``'m'``, or ``'ub'``. ``version`` is the
     first ``MAJOR.MINOR`` token found in ``RobotInfo.robot_model_version``, or

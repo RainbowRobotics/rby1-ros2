@@ -12,7 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""RB-Y1 driver without a robot.
+"""
+RB-Y1 driver without a robot.
 
 backend:=fake (default) runs the real RB-Y1 hardware interface against an in-memory robot, so the
 command-mode switching and guards behave as on the robot. use_mock_hardware:=true uses

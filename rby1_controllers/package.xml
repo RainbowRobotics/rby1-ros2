@@ -29,6 +29,8 @@
   <depend>tf2_msgs</depend>
   <depend>tf2_ros</depend>
 
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
   <test_depend>ament_cmake_gmock</test_depend>
 
   <export>

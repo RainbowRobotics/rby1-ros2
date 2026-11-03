@@ -57,7 +57,7 @@ Eigen::Matrix4d to_matrix(const Pose & pose)
 // The SDK builders are neither copyable nor movable: every builder is filled in place and
 // wrapped by its parent while it is alive.
 
-template <typename B>
+template<typename B>
 void set_header(B & b, const CommandTiming & timing)
 {
   rb::CommandHeaderBuilder header;
@@ -65,17 +65,28 @@ void set_header(B & b, const CommandTiming & timing)
   b.SetCommandHeader(header);
 }
 
-template <typename C> struct InnerOf;
-template <> struct InnerOf<JointPositionCommand> {using type = rb::JointPositionCommandBuilder;};
-template <> struct InnerOf<JointGroupPositionCommand> {using type = rb::JointGroupPositionCommandBuilder;};
-template <> struct InnerOf<JointImpedanceCommand> {using type = rb::JointImpedanceControlCommandBuilder;};
-template <> struct InnerOf<GravityCompensationCommand> {using type = rb::GravityCompensationCommandBuilder;};
-template <> struct InnerOf<JointVelocityCommand> {using type = rb::JointVelocityCommandBuilder;};
-template <> struct InnerOf<SE2VelocityCommand> {using type = rb::SE2VelocityCommandBuilder;};
-template <> struct InnerOf<CartesianCommand> {using type = rb::CartesianCommandBuilder;};
-template <> struct InnerOf<CartesianImpedanceCommand> {using type = rb::CartesianImpedanceControlCommandBuilder;};
-template <> struct InnerOf<ImpedanceCommand> {using type = rb::ImpedanceControlCommandBuilder;};
-template <> struct InnerOf<OptimalControlCommand> {using type = rb::OptimalControlCommandBuilder;};
+template<typename C>
+struct InnerOf;
+template<>
+struct InnerOf<JointPositionCommand> {using type = rb::JointPositionCommandBuilder;};
+template<>
+struct InnerOf<JointGroupPositionCommand> {using type = rb::JointGroupPositionCommandBuilder;};
+template<>
+struct InnerOf<JointImpedanceCommand> {using type = rb::JointImpedanceControlCommandBuilder;};
+template<>
+struct InnerOf<GravityCompensationCommand> {using type = rb::GravityCompensationCommandBuilder;};
+template<>
+struct InnerOf<JointVelocityCommand> {using type = rb::JointVelocityCommandBuilder;};
+template<>
+struct InnerOf<SE2VelocityCommand> {using type = rb::SE2VelocityCommandBuilder;};
+template<>
+struct InnerOf<CartesianCommand> {using type = rb::CartesianCommandBuilder;};
+template<>
+struct InnerOf<CartesianImpedanceCommand> {using type = rb::CartesianImpedanceControlCommandBuilder;};
+template<>
+struct InnerOf<ImpedanceCommand> {using type = rb::ImpedanceControlCommandBuilder;};
+template<>
+struct InnerOf<OptimalControlCommand> {using type = rb::OptimalControlCommandBuilder;};
 
 void fill(rb::JointPositionCommandBuilder & b, const JointPositionCommand & c)
 {
@@ -201,7 +212,9 @@ void fill(rb::OptimalControlCommandBuilder & b, const OptimalControlCommand & c)
   }
   if (c.center_of_mass) {
     const auto & com = *c.center_of_mass;
-    b.SetCenterOfMassTarget(com.ref_link, Eigen::Vector3d(com.position[0], com.position[1], com.position[2]), com.weight);
+    b.SetCenterOfMassTarget(
+      com.ref_link, Eigen::Vector3d(com.position[0], com.position[1], com.position[2]),
+      com.weight);
   }
   for (const auto & j : c.joint_targets) {
     b.AddJointPositionTarget(j.joint_name, j.position, j.weight);
@@ -216,7 +229,7 @@ void fill(rb::OptimalControlCommandBuilder & b, const OptimalControlCommand & c)
 
 // Fill the inner builder of `command`, wrap it into ComponentBuilder and hand that to `sink`.
 // Unsupported combinations throw; the mode registry never produces them.
-template <typename ComponentBuilder, typename Sink>
+template<typename ComponentBuilder, typename Sink>
 void with_component(const ComponentCommand & command, const char * component, Sink && sink)
 {
   std::visit(
@@ -259,7 +272,7 @@ ControlStatus to_status(rb::ControlManagerState::ControlState state)
   }
 }
 
-template <typename Model>
+template<typename Model>
 class SdkRobotBackend final : public RobotBackend
 {
 public:
@@ -447,7 +460,7 @@ public:
   {
     std::lock_guard<std::mutex> lock(mutex_);
     require_robot();
-    return robot_->SetParameter(name, value, /*write_db=*/false);
+    return robot_->SetParameter(name, value, /*write_db=*/ false);
   }
 
   bool open_stream(int priority, std::string & message) override
@@ -571,7 +584,8 @@ public:
     }
     rt_stop_ = false;
     rt_running_ = true;
-    rt_thread_ = std::thread([this, robot, cb = std::move(callback), priority]() {
+    rt_thread_ = std::thread(
+      [this, robot, cb = std::move(callback), priority]() {
         constexpr auto n = static_cast<size_t>(Model::kRobotDOF);
         RealtimeState state;
         state.position.resize(n);
@@ -661,22 +675,26 @@ private:
       if (torso || right || left) {
         throw std::invalid_argument("body command cannot be combined with torso/arm commands");
       }
-      with_component<rb::BodyCommandBuilder>(body, "body", [&](const rb::BodyCommandBuilder & b) {
+      with_component<rb::BodyCommandBuilder>(
+        body, "body", [&](const rb::BodyCommandBuilder & b) {
           component_based.SetBodyCommand(b);
         });
       any = true;
     } else if (torso || right || left) {
       rb::BodyComponentBasedCommandBuilder parts;
       if (torso) {
-        with_component<rb::TorsoCommandBuilder>(request.at(Component::kTorso), "torso",
+        with_component<rb::TorsoCommandBuilder>(
+          request.at(Component::kTorso), "torso",
           [&](const rb::TorsoCommandBuilder & b) {parts.SetTorsoCommand(b);});
       }
       if (right) {
-        with_component<rb::ArmCommandBuilder>(request.at(Component::kRightArm), "right_arm",
+        with_component<rb::ArmCommandBuilder>(
+          request.at(Component::kRightArm), "right_arm",
           [&](const rb::ArmCommandBuilder & b) {parts.SetRightArmCommand(b);});
       }
       if (left) {
-        with_component<rb::ArmCommandBuilder>(request.at(Component::kLeftArm), "left_arm",
+        with_component<rb::ArmCommandBuilder>(
+          request.at(Component::kLeftArm), "left_arm",
           [&](const rb::ArmCommandBuilder & b) {parts.SetLeftArmCommand(b);});
       }
       rb::BodyCommandBuilder body_builder(parts);
@@ -684,12 +702,14 @@ private:
       any = true;
     }
     if (!std::holds_alternative<std::monostate>(request.at(Component::kHead))) {
-      with_component<rb::HeadCommandBuilder>(request.at(Component::kHead), "head",
+      with_component<rb::HeadCommandBuilder>(
+        request.at(Component::kHead), "head",
         [&](const rb::HeadCommandBuilder & b) {component_based.SetHeadCommand(b);});
       any = true;
     }
     if (!std::holds_alternative<std::monostate>(request.at(Component::kMobility))) {
-      with_component<rb::MobilityCommandBuilder>(request.at(Component::kMobility), "mobility",
+      with_component<rb::MobilityCommandBuilder>(
+        request.at(Component::kMobility), "mobility",
         [&](const rb::MobilityCommandBuilder & b) {component_based.SetMobilityCommand(b);});
       any = true;
     }

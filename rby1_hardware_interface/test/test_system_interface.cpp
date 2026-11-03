@@ -42,9 +42,15 @@ using namespace std::chrono_literals;
 std::vector<std::string> joint_names()
 {
   std::vector<std::string> out = {"right_wheel", "left_wheel"};
-  for (int i = 0; i < 6; ++i) {out.push_back("torso_" + std::to_string(i));}
-  for (int i = 0; i < 7; ++i) {out.push_back("right_arm_" + std::to_string(i));}
-  for (int i = 0; i < 7; ++i) {out.push_back("left_arm_" + std::to_string(i));}
+  for (int i = 0; i < 6; ++i) {
+    out.push_back("torso_" + std::to_string(i));
+  }
+  for (int i = 0; i < 7; ++i) {
+    out.push_back("right_arm_" + std::to_string(i));
+  }
+  for (int i = 0; i < 7; ++i) {
+    out.push_back("left_arm_" + std::to_string(i));
+  }
   out.push_back("head_0");
   out.push_back("head_1");
   return out;
@@ -238,10 +244,17 @@ TEST_F(SystemInterfaceTest, SwitchesToImpedanceAndGravityCompensation)
   run_for(100ms);
   ASSERT_TRUE(std::holds_alternative<JointImpedanceCommand>(backend_->sent_requests().back().at(Component::kRightArm)));
 
-  ASSERT_TRUE(switch_to({"right_arm_gravity_compensation/enable"}, arm("right", {"position", "stiffness", "damping_ratio"})));
+  ASSERT_TRUE(
+    switch_to(
+      {"right_arm_gravity_compensation/enable"},
+      arm("right", {"position", "stiffness", "damping_ratio"})));
   EXPECT_EQ(hw_->active_mode(Component::kRightArm), "gravity_compensation");
   run_for(100ms);
-  ASSERT_TRUE(std::holds_alternative<GravityCompensationCommand>(backend_->sent_requests().back().at(Component::kRightArm)));
+  ASSERT_TRUE(
+    std::holds_alternative<GravityCompensationCommand>(
+      backend_->sent_requests().back().at(
+        Component::
+        kRightArm)));
 }
 
 TEST_F(SystemInterfaceTest, RejectsInvalidClaims)
@@ -262,7 +275,8 @@ TEST_F(SystemInterfaceTest, BaseVelocityModes)
   (void)command("right_wheel/velocity").set_value(1.0);
   run_for(100ms);
   ASSERT_TRUE(std::holds_alternative<JointVelocityCommand>(backend_->sent_requests().back().at(Component::kMobility)));
-  ASSERT_TRUE(switch_to(
+  ASSERT_TRUE(
+    switch_to(
       {"base_se2/linear_x", "base_se2/linear_y", "base_se2/angular_z"},
       {"right_wheel/velocity", "left_wheel/velocity"}));
   EXPECT_EQ(hw_->active_mode(Component::kMobility), "se2_velocity");

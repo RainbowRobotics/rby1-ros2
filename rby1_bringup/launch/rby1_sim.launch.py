@@ -12,7 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""RB-Y1 driver against the rby1 simulator core (rby1-sim-isaac or the MuJoCo simulator image).
+"""
+RB-Y1 driver against the rby1 simulator core (rby1-sim-isaac or the MuJoCo simulator image).
 
 The simulator core serves the same gRPC API as the robot, by default on 127.0.0.1:50051. The
 hardware enables power, servo and the control manager itself (auto_enable:=true).

@@ -27,7 +27,8 @@
 namespace
 {
 
-const char * kUrdf = R"(<?xml version="1.0"?>
+const char * kUrdf =
+  R"(<?xml version="1.0"?>
 <robot name="g"><link name="base"/>
 <link name="r1"/><link name="r2"/><link name="l1"/><link name="l2"/>
 <joint name="gripper_finger_r1" type="prismatic"><parent link="base"/><child link="r1"/><limit lower="-0.05" upper="0" effort="10" velocity="0.05"/></joint>

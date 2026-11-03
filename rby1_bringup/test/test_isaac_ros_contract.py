@@ -12,7 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Isaac ROS gear-assembly contract against the RB-Y1 driver (fake backend).
+"""
+Isaac ROS gear-assembly contract against the RB-Y1 driver (fake backend).
 
 Reproduces what isaac_ros_manipulation_dnn_policy expects from a robot driver
 (release-4.6, see docs/ISAAC_ROS.md):

@@ -45,7 +45,7 @@ const std::set<std::string> kJointCommandInterfaces = {
 
 }  // namespace
 
-enum class Rby1SystemInterface::StatusField : uint8_t
+enum class Rby1SystemInterface::StatusField: uint8_t
 {
   kControlManagerState, kControlState, kTimeScale, kEmoPressed, kStreamActive, kStreamRestarts,
   kClampCount, kStateAge, kOdometryX, kOdometryY, kOdometryYaw,
@@ -167,7 +167,8 @@ CallbackReturn Rby1SystemInterface::initialize(const hardware_interface::Hardwar
 {
   logger_ = rclcpp::get_logger("rby1_system_interface." + info.name);
   try {
-    parameters_ = ParameterTable(std::map<std::string, std::string>(
+    parameters_ = ParameterTable(
+      std::map<std::string, std::string>(
         info.hardware_parameters.begin(), info.hardware_parameters.end()));
     model_ = normalize_model(parameters_.get_string("model", "a"));
     address_ = parameters_.get_string("robot_ip", "192.168.30.1:50051");
@@ -244,7 +245,9 @@ bool Rby1SystemInterface::parse_joints(const hardware_interface::HardwareInfo & 
     const auto component = component_param != joint.parameters.end() ?
       component_from_string(component_param->second) : component_from_joint_name(joint.name);
     if (!component || *component == Component::kBody) {
-      RCLCPP_ERROR(logger_, "Cannot tell the component of joint '%s'; set its 'component' parameter", joint.name.c_str());
+      RCLCPP_ERROR(
+        logger_, "Cannot tell the component of joint '%s'; set its 'component' parameter",
+        joint.name.c_str());
       return false;
     }
     entry.component = *component;
@@ -296,7 +299,8 @@ bool Rby1SystemInterface::parse_gpios(const hardware_interface::HardwareInfo & i
   for (const auto & gpio : info.gpios) {
     GpioEntry entry;
     entry.name = gpio.name;
-    entry.parameters = ParameterTable(std::map<std::string, std::string>(gpio.parameters.begin(), gpio.parameters.end()));
+    entry.parameters =
+      ParameterTable(std::map<std::string, std::string>(gpio.parameters.begin(), gpio.parameters.end()));
     entry.kind = entry.parameters.get_string("kind", "");
     if (entry.kind.empty()) {
       RCLCPP_ERROR(logger_, "gpio '%s' needs a 'kind' parameter", gpio.name.c_str());
@@ -316,7 +320,8 @@ bool Rby1SystemInterface::parse_gpios(const hardware_interface::HardwareInfo & i
     } else {
       const auto component = component_from_string(entry.parameters.get_string("component", ""));
       if (!component) {
-        RCLCPP_ERROR(logger_, "gpio '%s' needs a 'component' parameter (torso, right_arm, left_arm, head, mobility, body)",
+        RCLCPP_ERROR(
+          logger_, "gpio '%s' needs a 'component' parameter (torso, right_arm, left_arm, head, mobility, body)",
           gpio.name.c_str());
         return false;
       }
@@ -330,7 +335,9 @@ bool Rby1SystemInterface::parse_gpios(const hardware_interface::HardwareInfo & i
         entry.command_slots[c.name] = slot;
       }
       if (!gpio.state_interfaces.empty()) {
-        RCLCPP_WARN(logger_, "gpio '%s': state interfaces are only supported on kind 'status'; ignored", gpio.name.c_str());
+        RCLCPP_WARN(
+          logger_, "gpio '%s': state interfaces are only supported on kind 'status'; ignored",
+          gpio.name.c_str());
       }
     }
     gpios_.push_back(entry);
@@ -503,7 +510,9 @@ CallbackReturn Rby1SystemInterface::on_activate(const rclcpp_lifecycle::State &)
   stream_thread_run_ = true;
   stream_thread_ = std::thread([this]() {stream_loop();});
   active_hw_ = true;
-  RCLCPP_INFO(logger_, "RB-Y1 hardware active (%s); streaming starts with the first claiming controller", message.c_str());
+  RCLCPP_INFO(
+    logger_, "RB-Y1 hardware active (%s); streaming starts with the first claiming controller",
+    message.c_str());
   return CallbackReturn::SUCCESS;
 }
 
@@ -560,10 +569,11 @@ bool Rby1SystemInterface::resolve_modes(
   std::array<std::set<std::string>, kComponentCount> by_component;
   // Real-time control claims effort and feedback_gain: its torso, arm and head claims are
   // matched together against the body-level real-time mode.
-  const bool realtime = std::any_of(claimed.begin(), claimed.end(), [](const std::string & n) {
-        return n.size() > 7 && (n.compare(n.size() - 7, 7, "/effort") == 0 ||
-        (n.size() > 14 && n.compare(n.size() - 14, 14, "/feedback_gain") == 0));
-      });
+  const bool realtime = std::any_of(
+    claimed.begin(), claimed.end(), [](const std::string & n) {
+      return n.size() > 7 && (n.compare(n.size() - 7, 7, "/effort") == 0 ||
+      (n.size() > 14 && n.compare(n.size() - 14, 14, "/feedback_gain") == 0));
+    });
   for (const auto & name : claimed) {
     auto component = component_of_interface(name);
     if (!component) {
@@ -765,11 +775,11 @@ return_type Rby1SystemInterface::read(const rclcpp::Time &, const rclcpp::Durati
   }
   const double age = std::chrono::duration<double>(std::chrono::steady_clock::now() - current_.received).count();
   if (active_hw_ && streaming_) {
+    const bool cm_fault = current_.control_manager == ControlManagerStatus::kMajorFault ||
+      current_.control_manager == ControlManagerStatus::kMinorFault;
     if (age > state_timeout_) {
       set_fatal("robot state is " + std::to_string(age) + " s old");
-    } else if (current_.control_manager == ControlManagerStatus::kMajorFault ||
-      current_.control_manager == ControlManagerStatus::kMinorFault)
-    {
+    } else if (cm_fault) {
       set_fatal("control manager reports a fault");
     } else if (current_.emo_pressed) {
       set_fatal("emergency stop pressed");
@@ -956,7 +966,8 @@ void Rby1SystemInterface::stream_loop()
           // when another command takes over (robot manager stop or cancel, a higher-priority
           // client). Do not take the robot back.
           stream_ok_ = false;
-          set_fatal("the command stream was ended by another command (stop, cancel or a higher-priority "
+          set_fatal(
+            "the command stream was ended by another command (stop, cancel or a higher-priority "
             "client); activate the hardware again to resume");
           break;
         }
@@ -974,8 +985,8 @@ void Rby1SystemInterface::stream_loop()
     const auto clamps = clamp_count_.load();
     if (clamps != logged_clamps && std::chrono::steady_clock::now() - last_clamp_log > std::chrono::seconds(2)) {
       RCLCPP_WARN(
-        logger_, "Commands were limited by the driver guards %lu times (limits, tracking error, step)",
-        static_cast<unsigned long>(clamps - logged_clamps));
+        logger_, "Commands were limited by the driver guards %s times (limits, tracking error, step)",
+        std::to_string(clamps - logged_clamps).c_str());
       logged_clamps = clamps;
       last_clamp_log = std::chrono::steady_clock::now();
     }
@@ -1008,7 +1019,8 @@ bool Rby1SystemInterface::start_realtime()
   const bool ok = backend_->start_realtime(
     [this](const RealtimeState & state, RealtimeInput & input) {realtime_tick(state, input);}, rt_priority_, message);
   if (ok) {
-    RCLCPP_INFO(logger_, "Real-time control started (%.3f rad/tick, %.2f rad tracking limit)", rt_max_step_,
+    RCLCPP_INFO(
+      logger_, "Real-time control started (%.3f rad/tick, %.2f rad tracking limit)", rt_max_step_,
       rt_max_tracking_error_);
   } else {
     RCLCPP_ERROR(logger_, "Real-time control failed to start: %s", message.c_str());
@@ -1041,8 +1053,9 @@ void Rby1SystemInterface::realtime_tick(const RealtimeState & state, RealtimeInp
     const int e = r < rt_entry_of_robot_.size() ? rt_entry_of_robot_[r] : -1;
     const bool claimed = e >= 0 && rt_claimed_[static_cast<size_t>(e)];
     const bool wheel = e >= 0 && joints_[static_cast<size_t>(e)].component == Component::kMobility;
-    if (wheel || (e < 0 && std::find(description_.component_joints[index_of(Component::kMobility)].begin(),
-      description_.component_joints[index_of(Component::kMobility)].end(), r) !=
+    if (wheel || (e < 0 && std::find(
+        description_.component_joints[index_of(Component::kMobility)].begin(),
+        description_.component_joints[index_of(Component::kMobility)].end(), r) !=
       description_.component_joints[index_of(Component::kMobility)].end()))
     {
       input.velocity_mode[r] = true;  // wheels stand still
@@ -1066,7 +1079,8 @@ void Rby1SystemInterface::realtime_tick(const RealtimeState & state, RealtimeInp
     // Robot rules: the joint drivers refuse large single-tick jumps and the control manager
     // faults when a target is more than 0.2 rad from the position.
     desired = std::clamp(desired, rt_sent_[r] - rt_max_step_, rt_sent_[r] + rt_max_step_);
-    desired = std::clamp(desired, state.position[r] - rt_max_tracking_error_, state.position[r] + rt_max_tracking_error_);
+    desired =
+      std::clamp(desired, state.position[r] - rt_max_tracking_error_, state.position[r] + rt_max_tracking_error_);
     rt_sent_[r] = desired;
     input.velocity_mode[r] = false;
     input.target[r] = desired;

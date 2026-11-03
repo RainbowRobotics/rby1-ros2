@@ -9,4 +9,13 @@ install(
   DESTINATION share/${PROJECT_NAME}
 )
 
+if(BUILD_TESTING)
+  # Linters (ament_lint_common); C++, Python and CMake use a 120 column limit.
+  # cppcheck is skipped: Humble ships a slow version and it misreads the gtest macros.
+  find_package(ament_lint_auto REQUIRED)
+  list(APPEND AMENT_LINT_AUTO_EXCLUDE ament_cmake_cppcheck ament_cmake_cpplint ament_cmake_flake8 ament_cmake_uncrustify)
+  ament_lint_auto_find_test_dependencies()
+  ament_flake8(MAX_LINE_LENGTH 120)
+endif()
+
 ament_package()

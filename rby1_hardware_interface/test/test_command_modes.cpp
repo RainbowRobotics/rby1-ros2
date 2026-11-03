@@ -63,7 +63,8 @@ struct Fixture
     }
   }
 
-  GpioEntry & add_gpio(const std::string & name, const std::string & kind, Component c,
+  GpioEntry & add_gpio(
+    const std::string & name, const std::string & kind, Component c,
     std::map<std::string, std::string> parameters, const std::vector<std::string> & interfaces)
   {
     GpioEntry g;
@@ -88,7 +89,8 @@ struct Fixture
   }
 };
 
-const CommandMode * select(const std::vector<std::unique_ptr<CommandMode>> & modes, Component c,
+const CommandMode * select(
+  const std::vector<std::unique_ptr<CommandMode>> & modes, Component c,
   const std::set<std::string> & claimed)
 {
   const CommandMode * found = nullptr;
@@ -199,8 +201,9 @@ TEST(CommandModes, JointImpedanceDefaults)
 {
   Fixture f;
   f.add_arm("right_arm_", Component::kRightArm, true);
-  f.params = ParameterTable({{"joint_impedance.right_arm.stiffness", "100,100,100,100,50,50,50"},
-    {"joint_impedance.damping_ratio", "0.8"}});
+  f.params = ParameterTable(
+    {{"joint_impedance.right_arm.stiffness", "100,100,100,100,50,50,50"},
+      {"joint_impedance.damping_ratio", "0.8"}});
   const auto modes = make_modes(f.joints, f.gpios, f.params);
   std::set<std::string> claims;
   for (int i = 0; i < 7; ++i) {
@@ -237,18 +240,25 @@ TEST(CommandModes, GpioModes)
   Fixture f;
   f.add_arm("right_arm_", Component::kRightArm, false);
   f.add_gpio("right_arm_gravity_compensation", "gravity_compensation", Component::kRightArm, {}, {"enable"});
-  f.add_gpio("base_se2", "se2_velocity", Component::kMobility, {{"max_linear_velocity", "0.5"}},
+  f.add_gpio(
+    "base_se2", "se2_velocity", Component::kMobility, {{"max_linear_velocity", "0.5"}},
     {"linear_x", "linear_y", "angular_z"});
   auto pose = pose_interfaces(0);
   pose.push_back("j0.position");
-  f.add_gpio("right_arm_cartesian", "cartesian", Component::kRightArm,
+  f.add_gpio(
+    "right_arm_cartesian", "cartesian", Component::kRightArm,
     {{"targets", "base:ee_right"}, {"joint_targets", "right_arm_2"}}, pose);
-  f.add_gpio("body_optimal_control", "optimal_control", Component::kBody,
+  f.add_gpio(
+    "body_optimal_control", "optimal_control", Component::kBody,
     {{"targets", "base:ee_right,base:ee_left"}, {"com_ref_link", "base"}},
     [] {
       auto v = pose_interfaces(0);
-      for (const auto & s : pose_interfaces(1)) {v.push_back(s);}
-      for (const auto * s : {"com.x", "com.y", "com.z"}) {v.push_back(s);}
+      for (const auto & s : pose_interfaces(1)) {
+        v.push_back(s);
+      }
+      for (const auto * s : {"com.x", "com.y", "com.z"}) {
+        v.push_back(s);
+      }
       return v;
     }());
   const auto modes = make_modes(f.joints, f.gpios, f.params);
@@ -257,8 +267,9 @@ TEST(CommandModes, GpioModes)
   ASSERT_NE(gravity, nullptr);
   EXPECT_STREQ(gravity->name(), "gravity_compensation");
 
-  const auto * se2 = select(modes, Component::kMobility,
-      {"base_se2/linear_x", "base_se2/linear_y", "base_se2/angular_z"});
+  const auto * se2 = select(
+    modes, Component::kMobility,
+    {"base_se2/linear_x", "base_se2/linear_y", "base_se2/angular_z"});
   ASSERT_NE(se2, nullptr);
   std::vector<double> measured(7, 0.0);
   const StateView state{&measured, &measured, &measured};

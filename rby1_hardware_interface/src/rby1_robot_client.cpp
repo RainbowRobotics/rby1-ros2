@@ -37,13 +37,13 @@ constexpr int32_t kStateExecuting = 3;
 constexpr int32_t kStateMajorFault = 4;
 constexpr int32_t kStateMinorFault = 5;
 
-template <typename StateT>
+template<typename StateT>
 bool has_recent_update(const StateT & state)
 {
   return state.time_since_last_update.tv_sec != 0 || state.time_since_last_update.tv_nsec != 0;
 }
 
-template <typename Vector3T>
+template<typename Vector3T>
 std::array<double, 3> to_array3(const Vector3T & value)
 {
   return {static_cast<double>(value[0]), static_cast<double>(value[1]), static_cast<double>(value[2])};
@@ -51,9 +51,10 @@ std::array<double, 3> to_array3(const Vector3T & value)
 
 std::string to_lower(std::string value)
 {
-  std::transform(value.begin(), value.end(), value.begin(), [](unsigned char character) {
-    return static_cast<char>(std::tolower(character));
-  });
+  std::transform(
+    value.begin(), value.end(), value.begin(), [](unsigned char character) {
+      return static_cast<char>(std::tolower(character));
+    });
   return value;
 }
 
@@ -82,7 +83,7 @@ int32_t map_control_manager_state(const rb::ControlManagerState & control_manage
   return kStateNone;
 }
 
-template <typename ToolFlangeT, typename FtSensorT>
+template<typename ToolFlangeT, typename FtSensorT>
 ToolFlangeStatus make_tool_flange_status(const ToolFlangeT & tool_flange, const FtSensorT & ft_sensor)
 {
   ToolFlangeStatus status;
@@ -130,7 +131,8 @@ public:
     const std::string & joint_name, JogMode mode, double value, double velocity_limit,
     double acceleration_limit, double timeout_sec, int priority, int32_t & finish_code) = 0;
   virtual CommandResult set_time_scale(double scale, double & applied) = 0;
-  virtual CommandResult set_led(uint8_t r, uint8_t g, uint8_t b, double duration, double transition_time,
+  virtual CommandResult set_led(
+    uint8_t r, uint8_t g, uint8_t b, double duration, double transition_time,
     bool blinking, double blinking_frequency) = 0;
   virtual CommandResult set_tool_flange_digital_output(const std::string & side, unsigned int channel, bool state) = 0;
   virtual CommandResult get_parameter(const std::string & name, std::string & value) = 0;
@@ -144,7 +146,7 @@ public:
   virtual CommandResult set_preset_position(const std::string & joint_name) = 0;
 };
 
-template <typename ModelType>
+template<typename ModelType>
 class Rby1RobotClientImpl final : public Rby1RobotClient::ImplBase
 {
 public:
@@ -173,7 +175,7 @@ public:
       robot_.reset();
       connected_ = false;
       throw std::runtime_error(
-        "RBY1 SDK threw a non-standard exception while connecting to " + options_.robot_ip);
+              "RBY1 SDK threw a non-standard exception while connecting to " + options_.robot_ip);
     }
   }
 
@@ -291,9 +293,9 @@ public:
       return result(true, "tool flange voltage command succeeded");
     }
     std::string failed;
-    if (!right_success) failed += "right";
+    if (!right_success) {failed += "right";}
     if (!left_success) {
-      if (!failed.empty()) failed += ", ";
+      if (!failed.empty()) {failed += ", ";}
       failed += "left";
     }
     return result(false, "tool flange voltage command failed for: " + failed);
@@ -360,7 +362,10 @@ public:
         success = robot_->EnableControlManager(true);
         break;
     }
-    return result(success, success ? "control manager " + command_name + " succeeded" : "control manager " + command_name + " failed");
+    return result(
+      success,
+      success ? "control manager " + command_name + " succeeded" : "control manager " + command_name +
+      " failed");
   }
 
   CommandResult stop(int priority) override
@@ -432,13 +437,15 @@ public:
     return result(true, "time scale " + std::to_string(applied));
   }
 
-  CommandResult set_led(uint8_t r, uint8_t g, uint8_t b, double duration, double transition_time, bool blinking,
+  CommandResult set_led(
+    uint8_t r, uint8_t g, uint8_t b, double duration, double transition_time, bool blinking,
     double blinking_frequency) override
   {
     std::lock_guard<std::mutex> lock(mutex_);
     require_connected();
-    const bool ok = robot_->SetLEDColor(rb::Color(r, g, b), duration, transition_time, blinking,
-        blinking_frequency > 0.0 ? blinking_frequency : 1.0);
+    const bool ok = robot_->SetLEDColor(
+      rb::Color(r, g, b), duration, transition_time, blinking,
+      blinking_frequency > 0.0 ? blinking_frequency : 1.0);
     return result(ok, ok ? "LED set" : "SetLEDColor failed");
   }
 
@@ -526,7 +533,7 @@ public:
   }
 
 private:
-  template <typename StateT>
+  template<typename StateT>
   void fill_brakes(BrakeGroups & brakes, const StateT & state) const
   {
     fill_brake_group(brakes.torso, info_.torso_joint_idx, state);
@@ -535,7 +542,7 @@ private:
     fill_brake_group(brakes.head, info_.head_joint_idx, state);
   }
 
-  template <typename StateT>
+  template<typename StateT>
   void fill_brake_group(
     std::vector<bool> & brake_group,
     const std::vector<unsigned int> & joint_indexes,
@@ -672,7 +679,9 @@ CommandResult Rby1RobotClient::set_led(
 {
   return impl_->set_led(r, g, b, duration, transition_time, blinking, blinking_frequency);
 }
-CommandResult Rby1RobotClient::set_tool_flange_digital_output(const std::string & side, unsigned int channel, bool state)
+CommandResult Rby1RobotClient::set_tool_flange_digital_output(
+  const std::string & side, unsigned int channel,
+  bool state)
 {
   return impl_->set_tool_flange_digital_output(side, channel, state);
 }
@@ -698,7 +707,10 @@ CommandResult Rby1RobotClient::set_position_pid_gain(const std::string & device,
 {
   return impl_->set_position_pid_gain(device, gains);
 }
-CommandResult Rby1RobotClient::home_offset_reset(const std::string & joint_name) {return impl_->home_offset_reset(joint_name);}
+CommandResult Rby1RobotClient::home_offset_reset(const std::string & joint_name)
+{
+  return impl_->home_offset_reset(joint_name);
+}
 CommandResult Rby1RobotClient::set_preset_position(const std::string & joint_name)
 {
   return impl_->set_preset_position(joint_name);

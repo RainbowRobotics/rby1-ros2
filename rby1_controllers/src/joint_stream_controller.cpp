@@ -200,7 +200,8 @@ CallbackReturn JointStreamController::on_configure(const rclcpp_lifecycle::State
     "~/joint_commands", rclcpp::SystemDefaultsQoS(),
     [this, index, n, now_ns](const sensor_msgs::msg::JointState::SharedPtr msg) {
       if (msg->position.size() != msg->name.size()) {
-        RCLCPP_WARN_THROTTLE(get_node()->get_logger(), *get_node()->get_clock(), 2000,
+        RCLCPP_WARN_THROTTLE(
+          get_node()->get_logger(), *get_node()->get_clock(), 2000,
           "joint_commands: name and position sizes differ; dropped");
         return;
       }
@@ -214,7 +215,8 @@ CallbackReturn JointStreamController::on_configure(const rclcpp_lifecycle::State
         }
       }
       if (matched != n) {
-        RCLCPP_WARN_THROTTLE(get_node()->get_logger(), *get_node()->get_clock(), 2000,
+        RCLCPP_WARN_THROTTLE(
+          get_node()->get_logger(), *get_node()->get_clock(), 2000,
           "joint_commands: %zu of %zu joints matched; dropped", matched, n);
         return;
       }
@@ -235,7 +237,8 @@ CallbackReturn JointStreamController::on_configure(const rclcpp_lifecycle::State
     "~/commands", rclcpp::SystemDefaultsQoS(),
     [this, n, now_ns](const std_msgs::msg::Float64MultiArray::SharedPtr msg) {
       if (msg->data.size() != n) {
-        RCLCPP_WARN_THROTTLE(get_node()->get_logger(), *get_node()->get_clock(), 2000,
+        RCLCPP_WARN_THROTTLE(
+          get_node()->get_logger(), *get_node()->get_clock(), 2000,
           "commands: expected %zu values, got %zu; dropped", n, msg->data.size());
         return;
       }
@@ -275,7 +278,8 @@ CallbackReturn JointStreamController::on_activate(const rclcpp_lifecycle::State 
       effort_cmd_[i] = find_interface(command_interfaces_, joints_[i] + "/effort");
       gain_cmd_[i] = find_interface(command_interfaces_, joints_[i] + "/feedback_gain");
     }
-    if (position_cmd_[i] < 0 || position_state_[i] < 0 || (impedance_ && (stiffness_cmd_[i] < 0 || damping_cmd_[i] < 0)) ||
+    if (position_cmd_[i] < 0 || position_state_[i] < 0 ||
+      (impedance_ && (stiffness_cmd_[i] < 0 || damping_cmd_[i] < 0)) ||
       (realtime_ && (effort_cmd_[i] < 0 || gain_cmd_[i] < 0)))
     {
       RCLCPP_ERROR(get_node()->get_logger(), "Missing interfaces for joint '%s'", joints_[i].c_str());
@@ -308,7 +312,8 @@ controller_interface::return_type JointStreamController::update(const rclcpp::Ti
     (time.nanoseconds() - last_command_ns_) * 1e-9 > command_timeout_)
   {
     // The last target is held; the hardware keeps commanding it.
-    RCLCPP_WARN_THROTTLE(get_node()->get_logger(), *get_node()->get_clock(), 5000,
+    RCLCPP_WARN_THROTTLE(
+      get_node()->get_logger(), *get_node()->get_clock(), 5000,
       "No joint command for more than %.2f s; holding the last target", command_timeout_);
   }
   const auto gains = *gains_buffer_.readFromRT();

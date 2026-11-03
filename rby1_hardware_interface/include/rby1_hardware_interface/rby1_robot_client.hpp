@@ -153,7 +153,8 @@ public:
     double acceleration_limit, double timeout_sec, int priority, int32_t & finish_code);
 
   CommandResult set_time_scale(double scale, double & applied);
-  CommandResult set_led(uint8_t r, uint8_t g, uint8_t b, double duration, double transition_time, bool blinking,
+  CommandResult set_led(
+    uint8_t r, uint8_t g, uint8_t b, double duration, double transition_time, bool blinking,
     double blinking_frequency);
   CommandResult set_tool_flange_digital_output(const std::string & side, unsigned int channel, bool state);
   CommandResult get_parameter(const std::string & name, std::string & value);
@@ -169,7 +170,7 @@ public:
 
 private:
   class ImplBase;
-  template <typename ModelType>
+  template<typename ModelType>
   friend class Rby1RobotClientImpl;
 
   RobotClientOptions options_;

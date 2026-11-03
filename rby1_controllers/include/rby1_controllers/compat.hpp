@@ -39,7 +39,7 @@
 namespace rby1_controllers
 {
 
-template <typename Handle>
+template<typename Handle>
 double read_value(const Handle & handle)
 {
 #ifdef RBY1_CONTROLLERS_OPTIONAL_HANDLE_API
@@ -49,14 +49,14 @@ double read_value(const Handle & handle)
 #endif
 }
 
-template <typename Handle>
+template<typename Handle>
 void write_value(Handle & handle, double value)
 {
   (void)handle.set_value(value);
 }
 
 // Index of the loaned interface with full name `name`, or -1.
-template <typename Loaned>
+template<typename Loaned>
 int find_interface(const std::vector<Loaned> & interfaces, const std::string & name)
 {
   for (size_t i = 0; i < interfaces.size(); ++i) {

@@ -118,7 +118,10 @@ CallbackReturn Rby1GripperSystem::initialize(const hardware_interface::HardwareI
     const auto & joint = info.joints[i];
     const auto mirror = joint.parameters.find("mirror_of");
     if (mirror != joint.parameters.end()) {
-      const auto it = std::find_if(fingers_.begin(), fingers_.end(), [&](const Finger & f) {return f.name == mirror->second;});
+      const auto it = std::find_if(
+        fingers_.begin(), fingers_.end(), [&](const Finger & f) {
+          return f.name == mirror->second;
+        });
       if (it == fingers_.end()) {
         RCLCPP_ERROR(logger_, "Joint '%s' mirrors unknown joint '%s'", joint.name.c_str(), mirror->second.c_str());
         return CallbackReturn::ERROR;
@@ -126,7 +129,9 @@ CallbackReturn Rby1GripperSystem::initialize(const hardware_interface::HardwareI
       fingers_[i].mirror = static_cast<int>(it - fingers_.begin());
       continue;
     }
-    if (joint.command_interfaces.size() != 1 || joint.command_interfaces[0].name != hardware_interface::HW_IF_POSITION) {
+    if (joint.command_interfaces.size() != 1 ||
+      joint.command_interfaces[0].name != hardware_interface::HW_IF_POSITION)
+    {
       RCLCPP_ERROR(logger_, "Gripper joint '%s' needs exactly one position command interface", joint.name.c_str());
       return CallbackReturn::ERROR;
     }
