@@ -204,9 +204,13 @@ public:
     }
 
     robot_state_publisher_ = create_publisher<rby1_msgs::msg::RobotState>("robot_state", 10);
-    battery_state_publisher_ = create_publisher<sensor_msgs::msg::BatteryState>("battery_state", 10);
-    tool_flange_left_publisher_ = create_publisher<rby1_msgs::msg::ToolFlangeState>("tool_flange/left", 10);
-    tool_flange_right_publisher_ = create_publisher<rby1_msgs::msg::ToolFlangeState>("tool_flange/right", 10);
+    // REP 2003: sensor data publishers use SystemDefaultsQoS
+    battery_state_publisher_ = create_publisher<sensor_msgs::msg::BatteryState>(
+      "battery_state", rclcpp::SystemDefaultsQoS());
+    tool_flange_left_publisher_ = create_publisher<rby1_msgs::msg::ToolFlangeState>(
+      "tool_flange/left", rclcpp::SystemDefaultsQoS());
+    tool_flange_right_publisher_ = create_publisher<rby1_msgs::msg::ToolFlangeState>(
+      "tool_flange/right", rclcpp::SystemDefaultsQoS());
 
     robot_power_service_ = create_service<rby1_msgs::srv::StateOnOff>(
       "robot_power",
