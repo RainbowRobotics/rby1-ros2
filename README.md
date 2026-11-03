@@ -24,7 +24,7 @@
 | `rby1_hardware_interface` | `Rby1SystemInterface` plugin, command modes, SDK and fake backends, `rby1_probe` |
 | `rby1_controllers` | `JointStreamController`, `GravityCompensationController`, `BaseVelocityController`, `TaskSpaceController` |
 | `rby1_gripper_hardware` | `Rby1GripperSystem` plugin (RB gripper, fake) |
-| `rby1_robot_manager` | Non-real-time services: power, servo, brakes, control manager, stop, jog, time scale, LED, tool flange, parameters, logs |
+| `rby1_robot_manager` | Non-real-time services: power, servo, brakes, control manager, stop, jog, time scale, LED, tool flange, parameters, logs; robot health on `/diagnostics` |
 | `rby1_description` | URDF/xacro for A (v1.0-1.2), M (v1.0-1.3) and UB with the `ros2_control` blocks |
 | `rby1_bringup` | Launch files and controller configurations |
 | `rby1_msgs` | Status messages and manager services |

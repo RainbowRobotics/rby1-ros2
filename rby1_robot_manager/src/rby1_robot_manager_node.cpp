@@ -22,6 +22,8 @@
 #include <string>
 #include <vector>
 
+#include "diagnostic_msgs/msg/diagnostic_status.hpp"
+#include "diagnostic_updater/diagnostic_updater.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "rby1_hardware_interface/rby1_robot_client.hpp"
 #include "rby1_msgs/msg/robot_state.hpp"
@@ -193,6 +195,8 @@ public:
     jog_priority_ = declare_parameter<int>("jog_priority", 1);
     allow_power_off_while_executing_ = declare_parameter<bool>("allow_power_off_while_executing", false);
     const bool maintenance = declare_parameter<bool>("enable_maintenance_services", false);
+    battery_warn_ = declare_parameter<double>("battery_warn_percentage", 0.2);
+    battery_error_ = declare_parameter<double>("battery_error_percentage", 0.1);
 
     client_ = std::make_unique<Rby1RobotClient>(options);
     if (connect_on_start_) {
@@ -326,6 +330,8 @@ public:
             });
         });
     }
+
+    setup_diagnostics(options.robot_ip);
 
     if (publish_status_) {
       const auto period = std::chrono::duration<double>(std::max(0.005, read_period_sec));
@@ -541,6 +547,9 @@ private:
         return;
       }
       const auto snapshot = client_->read_state();
+      last_snapshot_ = snapshot;
+      last_snapshot_time_ = now();
+      have_snapshot_ = true;
       publish_robot_state(snapshot);
       if (publish_battery_state_ && snapshot.battery.available) {
         publish_battery(snapshot);
@@ -556,6 +565,112 @@ private:
         "Failed to publish RBY1 status: %s",
         exception.what());
     }
+  }
+
+  // REP 107: robot health on /diagnostics, built from the last status snapshot (1 Hz).
+  void setup_diagnostics(const std::string & robot_ip)
+  {
+    using diagnostic_msgs::msg::DiagnosticStatus;
+    diagnostics_ = std::make_unique<diagnostic_updater::Updater>(this);
+    diagnostics_->setHardwareID("rby1 " + robot_ip);
+
+    diagnostics_->add(
+      "rby1: connection", [this](diagnostic_updater::DiagnosticStatusWrapper & status) {
+        if (!client_->is_connected()) {
+          status.summary(DiagnosticStatus::ERROR, "not connected");
+          return;
+        }
+        if (!publish_status_) {
+          status.summary(DiagnosticStatus::WARN, "connected; status polling is disabled (publish_status)");
+          return;
+        }
+        const double age = have_snapshot_ ? (now() - last_snapshot_time_).seconds() : -1.0;
+        status.add("state age [s]", age);
+        if (!have_snapshot_ || age > 1.0) {
+          status.summary(DiagnosticStatus::WARN, "connected; no recent robot state");
+        } else {
+          status.summary(DiagnosticStatus::OK, "connected");
+        }
+      });
+
+    diagnostics_->add(
+      "rby1: control manager", [this](diagnostic_updater::DiagnosticStatusWrapper & status) {
+        if (!have_snapshot_) {
+          status.summary(DiagnosticStatus::STALE, "no robot state yet");
+          return;
+        }
+        using RobotState = rby1_msgs::msg::RobotState;
+        const auto & snapshot = last_snapshot_;
+        status.add("state", snapshot.control_manager_state);
+        status.add("control state", snapshot.control_state);
+        status.add("time scale", snapshot.time_scale);
+        status.add("unlimited mode", snapshot.unlimited_mode_enabled);
+        status.add("emergency stop", snapshot.emo_state);
+        if (snapshot.emo_state) {
+          status.summary(DiagnosticStatus::ERROR, "emergency stop active");
+        } else if (snapshot.control_manager_state == RobotState::STATE_MAJOR_FAULT) {
+          status.summary(DiagnosticStatus::ERROR, "major fault");
+        } else if (snapshot.control_manager_state == RobotState::STATE_MINOR_FAULT) {
+          status.summary(DiagnosticStatus::ERROR, "minor fault");
+        } else if (snapshot.control_manager_state == RobotState::STATE_NONE) {
+          status.summary(DiagnosticStatus::WARN, "state unknown");
+        } else if (snapshot.control_manager_state == RobotState::STATE_IDLE) {
+          status.summary(DiagnosticStatus::OK, "idle (not enabled)");
+        } else if (snapshot.control_manager_state == RobotState::STATE_EXECUTING) {
+          status.summary(DiagnosticStatus::OK, "executing");
+        } else {
+          status.summary(DiagnosticStatus::OK, "enabled");
+        }
+      });
+
+    diagnostics_->add(
+      "rby1: power/servo", [this](diagnostic_updater::DiagnosticStatusWrapper & status) {
+        if (!have_snapshot_) {
+          status.summary(DiagnosticStatus::STALE, "no robot state yet");
+          return;
+        }
+        std::vector<std::string> not_ready;
+        for (const auto & name : last_snapshot_.joint_names) {
+          const auto it = last_snapshot_.joints.find(name);
+          if (it != last_snapshot_.joints.end() && !it->second.is_ready) {
+            not_ready.push_back(name);
+          }
+        }
+        status.add("joints", last_snapshot_.joint_names.size());
+        status.add("joints not ready", not_ready.size());
+        if (not_ready.empty()) {
+          status.summary(DiagnosticStatus::OK, "all joints powered and servoed");
+          return;
+        }
+        std::ostringstream names;
+        for (size_t i = 0; i < not_ready.size(); ++i) {
+          names << (i ? ", " : "") << not_ready[i];
+        }
+        status.add("not ready", names.str());
+        status.summary(
+          DiagnosticStatus::WARN,
+          std::to_string(not_ready.size()) + " of " + std::to_string(last_snapshot_.joint_names.size()) +
+          " joints not ready (power or servo off)");
+      });
+
+    diagnostics_->add(
+      "rby1: battery", [this](diagnostic_updater::DiagnosticStatusWrapper & status) {
+        if (!have_snapshot_ || !last_snapshot_.battery.available) {
+          status.summary(DiagnosticStatus::OK, "not reported");
+          return;
+        }
+        const auto & battery = last_snapshot_.battery;
+        status.add("voltage [V]", battery.voltage);
+        status.add("current [A]", battery.current);
+        status.add("percentage", battery.percentage);
+        if (battery.percentage < battery_error_) {
+          status.summary(DiagnosticStatus::ERROR, "battery critically low");
+        } else if (battery.percentage < battery_warn_) {
+          status.summary(DiagnosticStatus::WARN, "battery low");
+        } else {
+          status.summary(DiagnosticStatus::OK, "ok");
+        }
+      });
   }
 
   void publish_robot_state(const RobotStateSnapshot & snapshot)
@@ -598,6 +713,12 @@ private:
 
   std::mutex client_mutex_;
   std::unique_ptr<Rby1RobotClient> client_;
+  std::unique_ptr<diagnostic_updater::Updater> diagnostics_;
+  RobotStateSnapshot last_snapshot_;
+  rclcpp::Time last_snapshot_time_;
+  bool have_snapshot_{false};
+  double battery_warn_{0.2};
+  double battery_error_{0.1};
   bool connect_on_start_{true};
   bool publish_status_{true};
   bool publish_battery_state_{true};

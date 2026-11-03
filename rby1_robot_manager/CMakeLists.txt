@@ -9,6 +9,8 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(ament_cmake REQUIRED)
+find_package(diagnostic_msgs REQUIRED)
+find_package(diagnostic_updater REQUIRED)
 find_package(rby1_hardware_interface REQUIRED)
 find_package(rby1_msgs REQUIRED)
 find_package(rclcpp REQUIRED)
@@ -19,6 +21,8 @@ add_executable(rby1_robot_manager_node
   src/rby1_robot_manager_node.cpp
 )
 ament_target_dependencies(rby1_robot_manager_node
+  diagnostic_msgs
+  diagnostic_updater
   rby1_hardware_interface
   rby1_msgs
   rclcpp
