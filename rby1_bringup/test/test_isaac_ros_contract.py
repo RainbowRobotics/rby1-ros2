@@ -28,22 +28,22 @@ Reproduces what isaac_ros_manipulation_dnn_policy expects from a robot driver
 import time
 import unittest
 
+from controller_manager_msgs.srv import SwitchController
 import launch
+from launch.actions import IncludeLaunchDescription
+from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.substitutions import PathJoinSubstitution
+from launch_ros.substitutions import FindPackageShare
 import launch_testing
 import launch_testing.actions
 import pytest
 import rclpy
 from rclpy.time import Time
-from controller_manager_msgs.srv import SwitchController
-from launch.actions import IncludeLaunchDescription
-from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import PathJoinSubstitution
-from launch_ros.substitutions import FindPackageShare
 from sensor_msgs.msg import JointState
 from tf2_ros import Buffer, TransformListener
 
-ARM = [f"right_arm_{i}" for i in range(7)]
-CONTROLLER = "right_arm_impedance_controller"
+ARM = [f'right_arm_{i}' for i in range(7)]
+CONTROLLER = 'right_arm_impedance_controller'
 ACTION_SCALE = 0.025
 # Policy action per joint, pointing into the joint range from the zero pose
 # (right_arm_1 and right_arm_3 have their upper limit at +1 deg).
@@ -54,9 +54,9 @@ ACTION = [1.0, -1.0, 1.0, -1.0, 1.0, 1.0, 1.0]
 def generate_test_description():
     driver = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
-            PathJoinSubstitution([FindPackageShare("rby1_bringup"), "launch", "rby1_mock.launch.py"])
+            PathJoinSubstitution([FindPackageShare('rby1_bringup'), 'launch', 'rby1_mock.launch.py'])
         ),
-        launch_arguments={"model": "a", "activate_controllers": "right_arm_controller"}.items(),
+        launch_arguments={'model': 'a', 'activate_controllers': 'right_arm_controller'}.items(),
     )
     return launch.LaunchDescription([driver, launch_testing.actions.ReadyToTest()])
 
@@ -65,7 +65,7 @@ class TestIsaacRosContract(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         rclpy.init()
-        cls.node = rclpy.create_node("isaac_ros_contract_test")
+        cls.node = rclpy.create_node('isaac_ros_contract_test')
         cls.latest = None
         cls.ages = []
 
@@ -75,9 +75,9 @@ class TestIsaacRosContract(unittest.TestCase):
             cls.ages.append((now - stamp) * 1e-9)
             cls.latest = msg
 
-        cls.node.create_subscription(JointState, "/joint_states", on_joint_states, 10)
-        cls.pub = cls.node.create_publisher(JointState, f"/{CONTROLLER}/joint_commands", 1)
-        cls.switch = cls.node.create_client(SwitchController, "/controller_manager/switch_controller")
+        cls.node.create_subscription(JointState, '/joint_states', on_joint_states, 10)
+        cls.pub = cls.node.create_publisher(JointState, f'/{CONTROLLER}/joint_commands', 1)
+        cls.switch = cls.node.create_client(SwitchController, '/controller_manager/switch_controller')
         cls.tf_buffer = Buffer()
         cls.tf_listener = TransformListener(cls.tf_buffer, cls.node)
 
@@ -111,23 +111,23 @@ class TestIsaacRosContract(unittest.TestCase):
         deadline = time.time() + 60.0
         while self.latest is None and time.time() < deadline:
             self.spin_for(0.2)
-        self.assertIsNotNone(self.latest, "no /joint_states")
+        self.assertIsNotNone(self.latest, 'no /joint_states')
 
         # observation_encoder_node: stamp age below its default 10 ms threshold
         self.ages.clear()
         self.spin_for(2.0)
-        self.assertGreater(len(self.ages), 150, "joint_states slower than ~100 Hz")
+        self.assertGreater(len(self.ages), 150, 'joint_states slower than ~100 Hz')
         fresh = sum(1 for a in self.ages if a < 0.010) / len(self.ages)
-        self.assertGreater(fresh, 0.95, f"only {fresh:.0%} of joint_states younger than 10 ms")
+        self.assertGreater(fresh, 0.95, f'only {fresh:.0%} of joint_states younger than 10 ms')
 
         # orchestrator: trajectory controller -> impedance controller (spawner may still be loading)
         ok = False
         deadline = time.time() + 60.0
         while not ok and time.time() < deadline:
-            ok = self.switch_controllers([CONTROLLER], ["right_arm_controller"])
+            ok = self.switch_controllers([CONTROLLER], ['right_arm_controller'])
             if not ok:
                 self.spin_for(1.0)
-        self.assertTrue(ok, "could not switch to the impedance controller")
+        self.assertTrue(ok, 'could not switch to the impedance controller')
 
         # action_decoder_node: 30 Hz, target = measured + scale * a
         start = self.arm_positions()
@@ -141,7 +141,7 @@ class TestIsaacRosContract(unittest.TestCase):
             self.spin_for(1.0 / 30.0)
         moved = [(b - a) * sign for a, b, sign in zip(start, self.arm_positions(), ACTION)]
         for joint, delta in zip(ARM, moved):
-            self.assertGreater(delta, 0.1, f"{joint} did not follow the streamed targets ({delta:.3f} rad)")
+            self.assertGreater(delta, 0.1, f'{joint} did not follow the streamed targets ({delta:.3f} rad)')
 
         # a message with a missing joint is dropped (action_decoder never sends one)
         before = self.arm_positions()
@@ -154,22 +154,22 @@ class TestIsaacRosContract(unittest.TestCase):
             self.assertAlmostEqual(a, b, delta=0.03)
 
         # and back to the trajectory controller
-        self.assertTrue(self.switch_controllers(["right_arm_controller"], [CONTROLLER]))
+        self.assertTrue(self.switch_controllers(['right_arm_controller'], [CONTROLLER]))
 
     def test_tf_tree(self):
         # REP 105: one tree from odom through base_link to the arms (odometry from base_velocity_controller)
         ok = False
         deadline = time.time() + 60.0
         while not ok and time.time() < deadline:
-            ok = self.switch_controllers(["base_velocity_controller"], [])
+            ok = self.switch_controllers(['base_velocity_controller'], [])
             if not ok:
                 self.spin_for(1.0)
-        self.assertTrue(ok, "could not activate base_velocity_controller")
+        self.assertTrue(ok, 'could not activate base_velocity_controller')
         found = False
         deadline = time.time() + 10.0
         while not found and time.time() < deadline:
             self.spin_for(0.2)
-            found = self.tf_buffer.can_transform("odom", "ee_right", Time())
-        self.assertTrue(found, "no transform odom -> ee_right")
-        self.assertTrue(self.tf_buffer.can_transform("base_link", "base", Time()))
-        self.assertTrue(self.switch_controllers([], ["base_velocity_controller"]))
+            found = self.tf_buffer.can_transform('odom', 'ee_right', Time())
+        self.assertTrue(found, 'no transform odom -> ee_right')
+        self.assertTrue(self.tf_buffer.can_transform('base_link', 'base', Time()))
+        self.assertTrue(self.switch_controllers([], ['base_velocity_controller']))

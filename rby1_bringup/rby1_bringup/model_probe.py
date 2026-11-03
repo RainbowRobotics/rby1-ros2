@@ -29,16 +29,16 @@ from typing import Optional, Tuple
 
 
 def _normalize(raw_name: str, raw_version: str, robot_ip: str) -> Tuple[str, Optional[str]]:
-    name = (raw_name or "").strip().lower()
-    if name.startswith("ub"):
-        model = "ub"
-    elif name.startswith("a"):
-        model = "a"
-    elif name.startswith("m"):
-        model = "m"
+    name = (raw_name or '').strip().lower()
+    if name.startswith('ub'):
+        model = 'ub'
+    elif name.startswith('a'):
+        model = 'a'
+    elif name.startswith('m'):
+        model = 'm'
     else:
         raise RuntimeError(f"RBY1 model probe returned unsupported model name '{name}' from '{robot_ip}'.")
-    match = re.search(r"(\d+\.\d+)", raw_version or "")
+    match = re.search(r'(\d+\.\d+)', raw_version or '')
     version = match.group(1) if match else None
     print(f"[rby1_bringup] Detected RBY1 model='{model}' version='{version}' (raw '{name}', '{raw_version}')")
     return model, version
@@ -48,8 +48,8 @@ def _probe_executable() -> Optional[str]:
     try:
         from ament_index_python.packages import get_package_prefix
 
-        prefix = get_package_prefix("rby1_hardware_interface")
-        path = os.path.join(prefix, "lib", "rby1_hardware_interface", "rby1_probe")
+        prefix = get_package_prefix('rby1_hardware_interface')
+        path = os.path.join(prefix, 'lib', 'rby1_hardware_interface', 'rby1_probe')
         return path if os.access(path, os.X_OK) else None
     except Exception:
         return None
@@ -63,7 +63,7 @@ def _probe_cpp(executable: str, robot_ip: str, connect_timeout_sec: float) -> Tu
     if result.returncode != 0:
         raise RuntimeError(f"RBY1 model probe failed for '{robot_ip}': {result.stderr.strip()}")
     info = json.loads(result.stdout.strip().splitlines()[-1])
-    return _normalize(info.get("model_name", ""), info.get("model_version", ""), robot_ip)
+    return _normalize(info.get('model_name', ''), info.get('model_version', ''), robot_ip)
 
 
 def detect_model_and_version(
@@ -92,7 +92,7 @@ def detect_model_and_version(
         import rby1_sdk as rby
     except ImportError as exc:
         raise RuntimeError(
-            "rby1_sdk Python package is not installed; cannot auto-detect model. "
+            'rby1_sdk Python package is not installed; cannot auto-detect model. '
             "Install it with 'pip install rby1-sdk' or pass model:=a|m|ub explicitly."
         ) from exc
 
@@ -115,7 +115,7 @@ def detect_model_and_version(
         if not connected:
             raise RuntimeError(
                 f"RBY1 model probe could not connect to '{robot_ip}' "
-                f"within {connect_timeout_sec:.2f}s."
+                f'within {connect_timeout_sec:.2f}s.'
             )
 
         try:
@@ -126,7 +126,7 @@ def detect_model_and_version(
             ) from exc
 
         return _normalize(
-            getattr(info, "robot_model_name", ""), getattr(info, "robot_model_version", ""), robot_ip
+            getattr(info, 'robot_model_name', ''), getattr(info, 'robot_model_version', ''), robot_ip
         )
     finally:
         try:

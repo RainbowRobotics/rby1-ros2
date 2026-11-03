@@ -329,8 +329,10 @@ public:
         "joint_operation", [this](auto request, auto response) {
           call(
             response, [this, request]() {
-              return request->operation == rby1_msgs::srv::JointOperation::Request::OP_HOME_OFFSET_RESET ?
-              client_->home_offset_reset(request->joint_name) : client_->set_preset_position(request->joint_name);
+              if (request->operation == rby1_msgs::srv::JointOperation::Request::OP_HOME_OFFSET_RESET) {
+                return client_->home_offset_reset(request->joint_name);
+              }
+              return client_->set_preset_position(request->joint_name);
             });
         });
     }

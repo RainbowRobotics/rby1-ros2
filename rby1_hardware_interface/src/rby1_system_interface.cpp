@@ -571,8 +571,9 @@ bool Rby1SystemInterface::resolve_modes(
   // matched together against the body-level real-time mode.
   const bool realtime = std::any_of(
     claimed.begin(), claimed.end(), [](const std::string & n) {
-      return n.size() > 7 && (n.compare(n.size() - 7, 7, "/effort") == 0 ||
-      (n.size() > 14 && n.compare(n.size() - 14, 14, "/feedback_gain") == 0));
+      const bool effort = n.size() > 7 && n.compare(n.size() - 7, 7, "/effort") == 0;
+      const bool feedback_gain = n.size() > 14 && n.compare(n.size() - 14, 14, "/feedback_gain") == 0;
+      return effort || feedback_gain;
     });
   for (const auto & name : claimed) {
     auto component = component_of_interface(name);

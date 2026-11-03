@@ -27,19 +27,19 @@ from launch_ros.substitutions import FindPackageShare
 
 
 def generate_launch_description():
-    passthrough = {"model": "a", "version": "1.2", "robot_ip": "127.0.0.1:50051", "activate_controllers": ""}
+    passthrough = {'model': 'a', 'version': '1.2', 'robot_ip': '127.0.0.1:50051', 'activate_controllers': ''}
     return LaunchDescription(
         [DeclareLaunchArgument(name, default_value=value) for name, value in passthrough.items()]
         + [
             IncludeLaunchDescription(
                 PythonLaunchDescriptionSource(
-                    PathJoinSubstitution([FindPackageShare("rby1_bringup"), "launch", "rby1_control.launch.py"])
+                    PathJoinSubstitution([FindPackageShare('rby1_bringup'), 'launch', 'rby1_control.launch.py'])
                 ),
                 launch_arguments={
                     **{name: LaunchConfiguration(name) for name in passthrough},
-                    "backend": "sdk",
-                    "auto_enable": "true",
-                    "gripper": "false",
+                    'backend': 'sdk',
+                    'auto_enable': 'true',
+                    'gripper': 'false',
                 }.items(),
             )
         ]

@@ -28,21 +28,21 @@ from launch_ros.substitutions import FindPackageShare
 
 
 def generate_launch_description():
-    passthrough = ["model", "version", "use_mock_hardware", "activate_controllers", "gripper", "realtime"]
-    defaults = {"model": "a", "version": "1.2", "use_mock_hardware": "false", "activate_controllers": "",
-                "gripper": "false", "realtime": "false"}
+    passthrough = ['model', 'version', 'use_mock_hardware', 'activate_controllers', 'gripper', 'realtime']
+    defaults = {'model': 'a', 'version': '1.2', 'use_mock_hardware': 'false', 'activate_controllers': '',
+                'gripper': 'false', 'realtime': 'false'}
     return LaunchDescription(
         [DeclareLaunchArgument(name, default_value=defaults[name]) for name in passthrough]
         + [
             IncludeLaunchDescription(
                 PythonLaunchDescriptionSource(
-                    PathJoinSubstitution([FindPackageShare("rby1_bringup"), "launch", "rby1_control.launch.py"])
+                    PathJoinSubstitution([FindPackageShare('rby1_bringup'), 'launch', 'rby1_control.launch.py'])
                 ),
                 launch_arguments={
                     **{name: LaunchConfiguration(name) for name in passthrough},
-                    "backend": "fake",
-                    "gripper_backend": "fake",
-                    "launch_robot_manager": "false",
+                    'backend': 'fake',
+                    'gripper_backend': 'fake',
+                    'launch_robot_manager': 'false',
                 }.items(),
             )
         ]

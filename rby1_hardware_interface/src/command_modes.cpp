@@ -1189,8 +1189,10 @@ std::vector<std::unique_ptr<CommandMode>> make_modes(
     }
     const bool all = !b.joint_ids.empty() && std::all_of(
       b.joint_ids.begin(), b.joint_ids.end(), [&](size_t id) {
-        return joints[id].cmd_position != kNoInterface && joints[id].cmd_effort != kNoInterface &&
-        joints[id].cmd_feedback_gain != kNoInterface;
+        const auto & j = joints[id];
+        const bool has_position = j.cmd_position != kNoInterface;
+        const bool has_torque = j.cmd_effort != kNoInterface && j.cmd_feedback_gain != kNoInterface;
+        return has_position && has_torque;
       });
     if (all) {
       modes.push_back(std::make_unique<RealtimeMode>(b));
