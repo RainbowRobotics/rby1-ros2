@@ -16,6 +16,8 @@ jobs:
             platform: linux/amd64
           - distro: humble
             platform: linux/arm64   # UPC (Jetson Orin, Ubuntu 22.04)
+          - distro: jazzy
+            platform: linux/arm64   # REP 2000 Tier 1 (Ubuntu 24.04 arm64)
     runs-on: ${{ matrix.platform == 'linux/arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
     steps:
       - uses: actions/checkout@v7
@@ -35,6 +37,10 @@ jobs:
         run: |
           docker run --rm rby1-ros2:${{ matrix.distro }} bash -c \
             "cd /ws && colcon test --event-handlers console_cohesion+ --return-code-on-test-failure"
+      - name: Lint tools (not a package, so not covered by colcon test)
+        run: |
+          docker run --rm rby1-ros2:${{ matrix.distro }} bash -c \
+            "ament_flake8 --linelength 120 /ws/src/rby1-ros2/tools && ament_pep257 /ws/src/rby1-ros2/tools"
 
   native-build:
     # Local (non-Docker) build path, as on the UPC.
