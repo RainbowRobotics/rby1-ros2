@@ -33,12 +33,14 @@ import launch_testing
 import launch_testing.actions
 import pytest
 import rclpy
+from rclpy.time import Time
 from controller_manager_msgs.srv import SwitchController
 from launch.actions import IncludeLaunchDescription
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import PathJoinSubstitution
 from launch_ros.substitutions import FindPackageShare
 from sensor_msgs.msg import JointState
+from tf2_ros import Buffer, TransformListener
 
 ARM = [f"right_arm_{i}" for i in range(7)]
 CONTROLLER = "right_arm_impedance_controller"
@@ -76,6 +78,8 @@ class TestIsaacRosContract(unittest.TestCase):
         cls.node.create_subscription(JointState, "/joint_states", on_joint_states, 10)
         cls.pub = cls.node.create_publisher(JointState, f"/{CONTROLLER}/joint_commands", 1)
         cls.switch = cls.node.create_client(SwitchController, "/controller_manager/switch_controller")
+        cls.tf_buffer = Buffer()
+        cls.tf_listener = TransformListener(cls.tf_buffer, cls.node)
 
     @classmethod
     def tearDownClass(cls):
@@ -151,3 +155,21 @@ class TestIsaacRosContract(unittest.TestCase):
 
         # and back to the trajectory controller
         self.assertTrue(self.switch_controllers(["right_arm_controller"], [CONTROLLER]))
+
+    def test_tf_tree(self):
+        # REP 105: one tree from odom through base_link to the arms (odometry from base_velocity_controller)
+        ok = False
+        deadline = time.time() + 60.0
+        while not ok and time.time() < deadline:
+            ok = self.switch_controllers(["base_velocity_controller"], [])
+            if not ok:
+                self.spin_for(1.0)
+        self.assertTrue(ok, "could not activate base_velocity_controller")
+        found = False
+        deadline = time.time() + 10.0
+        while not found and time.time() < deadline:
+            self.spin_for(0.2)
+            found = self.tf_buffer.can_transform("odom", "ee_right", Time())
+        self.assertTrue(found, "no transform odom -> ee_right")
+        self.assertTrue(self.tf_buffer.can_transform("base_link", "base", Time()))
+        self.assertTrue(self.switch_controllers([], ["base_velocity_controller"]))

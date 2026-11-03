@@ -105,6 +105,9 @@ services, or `auto_enable:=true`). See [docs/SAFETY.md](docs/SAFETY.md) before m
 
 Stop and jog are whole-robot commands and live in the robot manager (`/rby1/stop`, `/rby1/jog`).
 
+The TF tree follows REP 105: `odom → base_link → base → …`, with `odom → base_link` published by
+`base_velocity_controller` ([docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#frames-rep-105)).
+
 ## Documentation
 
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): how the hardware interface works

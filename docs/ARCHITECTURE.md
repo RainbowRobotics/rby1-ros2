@@ -84,6 +84,18 @@ conditioned values (position, feedforward torque, feedback gain), applies the pe
 returns the control input. It is exclusive: base controllers cannot run with it; head position
 controllers join it. When the mode ends the loop finishes and the stream resumes with a hold.
 
+## Frames (REP 105)
+
+```
+map ──(AMCL / SLAM)──► odom ──(base_velocity_controller)──► base_link ──(fixed, identity)──► base ──► torso, arms, head
+```
+
+The vendored rby1-sdk models are rooted at `base`. `rby1_description` adds `base_link` as the root
+(`urdf/rby1_base_link.xacro`), so odometry and Nav2 use the REP 105 name while the SDK link names used
+by the task-space targets (`base`, `ee_right`, ...) stay unchanged. `base_velocity_controller` publishes `odom → base_link`
+on `/tf` (`publish_tf`, default true); turn it off when an EKF publishes that transform. The `odom` frame is continuous: the
+driver does not expose the SDK odometry reset.
+
 ## Parameters (`<hardware>` in the URDF)
 
 | Parameter | Default | Meaning |

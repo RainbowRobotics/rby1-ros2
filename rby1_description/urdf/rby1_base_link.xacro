@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <!--
+    REP 105 robot frame. The vendored rby1-sdk models are rooted at `base`; `base_link` is added as the
+    root with an identity joint, so odometry (odom -> base_link) and Nav2 use the standard name while the
+    SDK link names (`base`, `ee_right`, ...) stay unchanged.
+  -->
+  <xacro:macro name="rby1_base_link">
+    <link name="base_link"/>
+    <joint name="base_link_joint" type="fixed">
+      <parent link="base_link"/>
+      <child link="base"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+    </joint>
+  </xacro:macro>
+</robot>

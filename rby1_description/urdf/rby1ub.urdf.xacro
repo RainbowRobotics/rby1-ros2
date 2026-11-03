@@ -20,8 +20,11 @@
   <xacro:arg name="gripper_device" default="/dev/rby1_gripper"/>
 
   <xacro:include filename="$(find rby1_description)/urdf/rby1ub/model.xacro"/>
+  <xacro:include filename="$(find rby1_description)/urdf/rby1_base_link.xacro"/>
   <xacro:include filename="$(find rby1_description)/urdf/rby1.ros2_control.xacro"/>
   <xacro:include filename="$(find rby1_description)/urdf/rby1_gripper.ros2_control.xacro"/>
+
+  <xacro:rby1_base_link/>
 
   <xacro:rby1ub_ros2_control
     robot_ip="$(arg robot_ip)"

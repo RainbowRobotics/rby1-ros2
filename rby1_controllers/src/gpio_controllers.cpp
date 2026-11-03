@@ -95,7 +95,7 @@ CallbackReturn BaseVelocityController::on_init()
   auto_declare<bool>("publish_odom", true);
   auto_declare<bool>("publish_tf", true);
   auto_declare<std::string>("odom_frame", "odom");
-  auto_declare<std::string>("base_frame", "base");
+  auto_declare<std::string>("base_frame", "base_link");
   return CallbackReturn::SUCCESS;
 }
 

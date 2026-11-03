@@ -85,9 +85,10 @@ base_velocity_controller:
     status_gpio: rby1_status
     cmd_vel_timeout: 0.5
     publish_odom: true
-    publish_tf: false
+    # odom -> base_link on /tf (REP 105); set false when another node (e.g. robot_localization) publishes it
+    publish_tf: true
     odom_frame: odom
-    base_frame: base
+    base_frame: base_link
 
 wheel_velocity_controller:
   ros__parameters:
