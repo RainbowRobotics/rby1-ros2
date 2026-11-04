@@ -1,0 +1,146 @@
+[
+  {
+    "category": "robot_specific",
+    "changed": false,
+    "current": [
+      0,
+      46,
+      56,
+      25558.048,
+      -1530.144,
+      30.294,
+      -0.198
+    ],
+    "incoming": [
+      0,
+      46,
+      56,
+      25558.048,
+      -1530.144,
+      30.294,
+      -0.198
+    ],
+    "name": "battery_config",
+    "note": "",
+    "restart_required": false,
+    "selectable": true,
+    "selected": false,
+    "type": 5
+  },
+  {
+    "category": "normal",
+    "changed": true,
+    "current": "",
+    "incoming": "48v",
+    "name": "boot.power_on_target",
+    "note": "",
+    "restart_required": true,
+    "selectable": true,
+    "selected": true,
+    "type": 2
+  },
+  {
+    "category": "normal",
+    "changed": true,
+    "current": 1.0,
+    "incoming": 0.5,
+    "name": "default.velocity_limit_scaling",
+    "note": "",
+    "restart_required": false,
+    "selectable": true,
+    "selected": true,
+    "type": 1
+  },
+  {
+    "category": "robot_specific",
+    "changed": false,
+    "current": [
+      0,
+      0,
+      -9.8
+    ],
+    "incoming": [
+      0,
+      0,
+      -9.8
+    ],
+    "name": "gravity",
+    "note": "",
+    "restart_required": false,
+    "selectable": true,
+    "selected": false,
+    "type": 3
+  },
+  {
+    "category": "robot_specific",
+    "changed": false,
+    "current": "RBY1@@@@",
+    "incoming": "RBY1@@@@",
+    "name": "hotspot.password",
+    "note": "",
+    "restart_required": false,
+    "selectable": true,
+    "selected": false,
+    "type": 2
+  },
+  {
+    "category": "robot_specific",
+    "changed": true,
+    "current": "RBY1",
+    "incoming": "OTHER",
+    "name": "hotspot.ssid",
+    "note": "",
+    "restart_required": false,
+    "selectable": true,
+    "selected": false,
+    "type": 2
+  },
+  {
+    "category": "robot_specific",
+    "changed": false,
+    "current": "",
+    "incoming": "",
+    "name": "model_name",
+    "note": "",
+    "restart_required": true,
+    "selectable": true,
+    "selected": false,
+    "type": 2
+  },
+  {
+    "category": "type_mismatch",
+    "changed": true,
+    "current": 10,
+    "incoming": 3.0,
+    "name": "real_time_control.max_timeout_count",
+    "note": "type differs (this core: 0)",
+    "restart_required": false,
+    "selectable": false,
+    "selected": false,
+    "type": 1
+  },
+  {
+    "category": "unknown",
+    "changed": true,
+    "current": null,
+    "incoming": 1.0,
+    "name": "removed.param",
+    "note": "not a parameter of this core",
+    "restart_required": false,
+    "selectable": false,
+    "selected": false,
+    "type": 1
+  },
+  {
+    "category": "identity",
+    "changed": true,
+    "current": "rby1a",
+    "incoming": "rby1x",
+    "name": "robot_model_name",
+    "note": "never imported",
+    "restart_required": false,
+    "selectable": false,
+    "selected": false,
+    "type": 2
+  }
+]

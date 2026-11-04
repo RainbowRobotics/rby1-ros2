@@ -137,6 +137,9 @@ public:
   virtual CommandResult set_tool_flange_digital_output(const std::string & side, unsigned int channel, bool state) = 0;
   virtual CommandResult get_parameter(const std::string & name, std::string & value) = 0;
   virtual CommandResult set_parameter(const std::string & name, const std::string & value, bool write_db) = 0;
+  virtual CommandResult get_parameter_list(std::vector<std::pair<std::string, int>> & parameters) = 0;
+  virtual CommandResult import_robot_model(const std::string & name, const std::string & urdf) = 0;
+  virtual RobotIdentity robot_identity() const = 0;
   virtual CommandResult get_logs(
     unsigned int count, std::vector<std::string> & fault_logs, std::vector<std::string> & entries) = 0;
   virtual CommandResult get_position_pid_gain(const std::string & device, PidGains & gains) = 0;
@@ -475,6 +478,28 @@ public:
     return result(ok, ok ? (write_db ? "parameter set and saved" : "parameter set") : "SetParameter failed");
   }
 
+  CommandResult get_parameter_list(std::vector<std::pair<std::string, int>> & parameters) override
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    require_connected();
+    parameters = robot_->GetParameterList();
+    return result(true, "ok");
+  }
+
+  CommandResult import_robot_model(const std::string & name, const std::string & urdf) override
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    require_connected();
+    const bool ok = robot_->ImportRobotModel(name, urdf);
+    return result(ok, ok ? "model imported" : "ImportRobotModel failed");
+  }
+
+  RobotIdentity robot_identity() const override
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return {info_.robot_model_name, info_.robot_model_version, info_.version, info_.sdk_version};
+  }
+
   CommandResult get_logs(
     unsigned int count, std::vector<std::string> & fault_logs, std::vector<std::string> & entries) override
   {
@@ -684,6 +709,15 @@ CommandResult Rby1RobotClient::set_parameter(const std::string & name, const std
 {
   return impl_->set_parameter(name, value, write_db);
 }
+CommandResult Rby1RobotClient::get_parameter_list(std::vector<std::pair<std::string, int>> & parameters)
+{
+  return impl_->get_parameter_list(parameters);
+}
+CommandResult Rby1RobotClient::import_robot_model(const std::string & name, const std::string & urdf)
+{
+  return impl_->import_robot_model(name, urdf);
+}
+RobotIdentity Rby1RobotClient::robot_identity() const {return impl_->robot_identity();}
 CommandResult Rby1RobotClient::get_logs(
   unsigned int count, std::vector<std::string> & fault_logs, std::vector<std::string> & entries)
 {

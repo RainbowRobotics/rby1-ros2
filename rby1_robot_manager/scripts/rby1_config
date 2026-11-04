@@ -1,0 +1,152 @@
+#!/usr/bin/env python3
+# Copyright 2026 Rainbow Robotics
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""
+Save and load the RB-Y1 configuration through the robot manager (rby1-config files, as the web UI).
+
+    ros2 run rby1_robot_manager rby1_config export [FILE]
+    ros2 run rby1_robot_manager rby1_config import FILE --dry-run
+    ros2 run rby1_robot_manager rby1_config import FILE [--only a,b] [--exclude c] [--include-robot-specific]
+                                                        [--models all|m1,m2] [--yes]
+
+The file is read and written on this machine; the robot manager may run elsewhere.
+"""
+
+import argparse
+import json
+import os
+import sys
+
+from rby1_msgs.srv import ExportConfig, ImportConfig
+import rclpy
+
+
+def call(node, srv_type, name, request, timeout):
+    client = node.create_client(srv_type, name)
+    if not client.wait_for_service(timeout_sec=timeout):
+        sys.exit(f'service {name} is not available (is rby1_robot_manager running?)')
+    future = client.call_async(request)
+    rclpy.spin_until_future_complete(node, future, timeout_sec=timeout)
+    if future.result() is None:
+        sys.exit(f'{name} did not answer within {timeout} s')
+    return future.result()
+
+
+def short(text, width=28):
+    return text if len(text) <= width else text[: width - 1] + '…'
+
+
+def print_preview(response):
+    for w in response.warnings:
+        print(f'warning: {w}')
+    rows = [i for i in response.items if i.changed or i.selected or not i.selectable]
+    if not rows:
+        print('every parameter in the file already matches the robot')
+    else:
+        print(f"{'':2}{'parameter':40} {'robot':28}    {'file':28} {'category':15} note")
+        for i in rows:
+            mark = '*' if i.selected else ' '
+            note = ('restart required; ' if i.restart_required else '') + i.note
+            print(f'{mark:2}{i.name:40} {short(i.current_json):28} -> {short(i.incoming_json):28} '
+                  f'{i.category:15} {note}')
+        print('* = applied by this import')
+    if response.model_names:
+        print('models in the file: ' + ', '.join(response.model_names))
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument('--namespace', default='/rby1', help='robot manager namespace (default /rby1)')
+    parser.add_argument('--timeout', type=float, default=30.0)
+    sub = parser.add_subparsers(dest='command', required=True)
+    exp = sub.add_parser('export', help='save the robot configuration to a file')
+    exp.add_argument('file', nargs='?', help='output file (default: the web UI file name in this directory)')
+    imp = sub.add_parser('import', help='preview or apply a configuration file')
+    imp.add_argument('file')
+    imp.add_argument('--dry-run', action='store_true', help='only show the preview')
+    imp.add_argument('--only', default='', help='comma separated parameters to apply instead of the default')
+    imp.add_argument('--exclude', default='', help='comma separated parameters to leave out')
+    imp.add_argument('--include-robot-specific', action='store_true',
+                     help='also apply changed battery_config, gravity, hotspot.*, model_name')
+    imp.add_argument('--models', default='', help='custom models from the file to import: all or m1,m2')
+    imp.add_argument('--yes', action='store_true', help='apply without asking')
+    args = parser.parse_args()
+
+    split = (lambda s: [x for x in s.split(',') if x])
+    rclpy.init()
+    node = rclpy.create_node('rby1_config_cli')
+    try:
+        if args.command == 'export':
+            r = call(node, ExportConfig, f'{args.namespace}/config/export', ExportConfig.Request(), args.timeout)
+            if not r.success:
+                sys.exit(f'export failed: {r.message}')
+            for w in r.warnings:
+                print(f'warning: {w}')
+            path = args.file or r.filename
+            with open(path, 'w', encoding='utf-8') as f:
+                f.write(r.content + '\n')
+            print(f'{r.message} to {os.path.abspath(path)}')
+            return
+
+        with open(args.file, 'r', encoding='utf-8') as f:
+            content = f.read()
+        request = ImportConfig.Request()
+        request.content = content
+        request.parameters = split(args.only)
+        request.exclude = split(args.exclude)
+        request.include_robot_specific = args.include_robot_specific
+        if args.models == 'all':
+            request.models = sorted((json.loads(content).get('models') or {}).keys())
+        else:
+            request.models = split(args.models)
+
+        request.dry_run = True
+        preview = call(node, ImportConfig, f'{args.namespace}/config/import', request, args.timeout)
+        if not preview.success:
+            sys.exit(f'import failed: {preview.message}')
+        print_preview(preview)
+        print(preview.message)
+        selected = [i.name for i in preview.items if i.selected]
+        if args.dry_run or (not selected and not request.models):
+            return
+        if not args.yes:
+            answer = input(f'apply {len(selected)} parameters and {len(request.models)} models to the robot '
+                           '(saved in its parameter database)? [y/N] ')
+            if answer.strip().lower() not in ('y', 'yes'):
+                print('nothing applied')
+                return
+
+        request.dry_run = False
+        request.parameters = selected
+        request.exclude = []
+        r = call(node, ImportConfig, f'{args.namespace}/config/import', request, args.timeout)
+        for name in r.applied:
+            print(f'applied   {name}')
+        for name in r.skipped:
+            print(f'skipped   {name}')
+        for name in r.failed:
+            print(f'failed    {name}')
+        for name in r.rollback_errors:
+            print(f'not restored  {name}')
+        print(r.message)
+        if not r.success:
+            sys.exit(1)
+    finally:
+        node.destroy_node()
+        rclpy.shutdown()
+
+
+if __name__ == '__main__':
+    main()

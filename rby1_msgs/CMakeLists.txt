@@ -10,11 +10,14 @@ find_package(rosidl_default_generators REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/BrakeState.msg"
+  "msg/ConfigItem.msg"
   "msg/RobotState.msg"
   "msg/ToolFlangeState.msg"
   "srv/ControlManagerCommand.srv"
+  "srv/ExportConfig.srv"
   "srv/GravityCompensation.srv"
   "srv/GetLogs.srv"
+  "srv/ImportConfig.srv"
   "srv/Jog.srv"
   "srv/JointOperation.srv"
   "srv/PositionPidGain.srv"

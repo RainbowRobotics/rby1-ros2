@@ -1,0 +1,65 @@
+{
+  "exported_at": "2026-11-04T10:00:00+09:00",
+  "format": "rby1-config",
+  "format_version": 1,
+  "models": {},
+  "parameters": {
+    "battery_config": {
+      "type": 5,
+      "value": [
+        0,
+        46,
+        56,
+        25558.048,
+        -1530.144,
+        30.294,
+        -0.198
+      ]
+    },
+    "boot.power_on_target": {
+      "type": 2,
+      "value": ""
+    },
+    "default.velocity_limit_scaling": {
+      "type": 1,
+      "value": 1.0
+    },
+    "gravity": {
+      "type": 3,
+      "value": [
+        0,
+        0,
+        -9.8
+      ]
+    },
+    "hotspot.password": {
+      "type": 2,
+      "value": "RBY1@@@@"
+    },
+    "hotspot.ssid": {
+      "type": 2,
+      "value": "RBY1"
+    },
+    "model_name": {
+      "type": 2,
+      "value": ""
+    },
+    "real_time_control.max_timeout_count": {
+      "type": 0,
+      "value": 10
+    },
+    "robot_model_name": {
+      "type": 2,
+      "value": "rby1a"
+    }
+  },
+  "port_forward": null,
+  "source": {
+    "core_version": "0.10.7",
+    "fingerprint": "fp-web-robot",
+    "hostname": "rby1-pc",
+    "robot_model_name": "a",
+    "robot_model_version": "v1.2",
+    "sdk_version": "0.10.0"
+  }
+}

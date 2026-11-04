@@ -12,9 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <unistd.h>
+
 #include <algorithm>
 #include <cctype>
 #include <chrono>
+#include <fstream>
+#include <iterator>
 #include <memory>
 #include <mutex>
 #include <sstream>
@@ -26,11 +30,14 @@
 #include "diagnostic_updater/diagnostic_updater.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "rby1_hardware_interface/rby1_robot_client.hpp"
+#include "rby1_robot_manager/config_backup.hpp"
 #include "rby1_msgs/msg/robot_state.hpp"
 #include "rby1_msgs/msg/tool_flange_state.hpp"
 #include "rby1_msgs/srv/control_manager_command.hpp"
+#include "rby1_msgs/srv/export_config.hpp"
 #include "rby1_msgs/srv/gravity_compensation.hpp"
 #include "rby1_msgs/srv/get_logs.hpp"
+#include "rby1_msgs/srv/import_config.hpp"
 #include "rby1_msgs/srv/jog.hpp"
 #include "rby1_msgs/srv/joint_operation.hpp"
 #include "rby1_msgs/srv/position_pid_gain.hpp"
@@ -52,6 +59,93 @@ using rby1_hardware_interface::ControlManagerCommand;
 using rby1_hardware_interface::RobotClientOptions;
 using rby1_hardware_interface::RobotStateSnapshot;
 using rby1_hardware_interface::Rby1RobotClient;
+
+// rby1-config export/import through the robot client (rby1-sdk gRPC).
+class ClientConfigRobot final : public config_backup::ConfigRobot
+{
+public:
+  explicit ClientConfigRobot(Rby1RobotClient & client)
+  : client_(client) {}
+
+  Identity identity() override
+  {
+    const auto id = client_.robot_identity();
+    return {id.model_name, id.model_version, id.core_version, id.sdk_version};
+  }
+
+  std::vector<std::pair<std::string, int>> parameter_list() override
+  {
+    std::vector<std::pair<std::string, int>> list;
+    const auto r = client_.get_parameter_list(list);
+    if (!r.success) {
+      throw std::runtime_error(r.message);
+    }
+    return list;
+  }
+
+  std::string get_parameter(const std::string & name) override
+  {
+    std::string value;
+    const auto r = client_.get_parameter(name, value);
+    if (!r.success) {
+      throw std::runtime_error(r.message);
+    }
+    return value;
+  }
+
+  bool set_parameter(const std::string & name, const std::string & json_value, bool write_db) override
+  {
+    return client_.set_parameter(name, json_value, write_db).success;
+  }
+
+  bool import_robot_model(const std::string & name, const std::string & urdf) override
+  {
+    return client_.import_robot_model(name, urdf).success;
+  }
+
+private:
+  Rby1RobotClient & client_;
+};
+
+std::string host_name()
+{
+  char buffer[256] = {0};
+  if (gethostname(buffer, sizeof(buffer) - 1) != 0) {
+    return "";
+  }
+  return buffer;
+}
+
+std::string read_file(const std::string & path)
+{
+  std::ifstream in(path, std::ios::binary);
+  if (!in) {
+    throw config_backup::ConfigError("cannot read " + path);
+  }
+  std::string data;
+  data.reserve(4096);
+  char chunk[4096];
+  while (in.read(chunk, sizeof(chunk)) || in.gcount() > 0) {
+    data.append(chunk, static_cast<size_t>(in.gcount()));
+    if (data.size() > config_backup::kMaxFileBytes) {
+      break;  // parse_file reports the size
+    }
+  }
+  return data;
+}
+
+std::vector<std::string> strings(const config_backup::json & array, const char * key = nullptr)
+{
+  std::vector<std::string> out;
+  for (const auto & v : array) {
+    if (key) {
+      out.push_back(v.value(key, "") + (v.contains("detail") ? ": " + v.value("detail", "") : ""));
+    } else {
+      out.push_back(v.get<std::string>());
+    }
+  }
+  return out;
+}
 
 std::string trim(const std::string & value)
 {
@@ -303,6 +397,10 @@ public:
             return client_->set_parameter(request->name, request->value, request->write_db);
           });
       });
+    add_service<rby1_msgs::srv::ExportConfig>(
+      "config/export", [this](auto request, auto response) {handle_export_config(request, response);});
+    add_service<rby1_msgs::srv::ImportConfig>(
+      "config/import", [this](auto request, auto response) {handle_import_config(request, response);});
     add_service<rby1_msgs::srv::GetLogs>(
       "get_logs", [this](auto request, auto response) {
         call(
@@ -372,6 +470,128 @@ private:
       const auto r = command();
       response->success = r.success;
       response->message = r.message;
+    } catch (const std::exception & e) {
+      response->success = false;
+      response->message = e.what();
+    }
+  }
+
+  // Robot configuration in the web UI format (rby1-config v1), see config_backup.hpp.
+  void handle_export_config(
+    const std::shared_ptr<rby1_msgs::srv::ExportConfig::Request> request,
+    const std::shared_ptr<rby1_msgs::srv::ExportConfig::Response> response)
+  {
+    std::lock_guard<std::mutex> lock(client_mutex_);
+    try {
+      if (!ensure_connected()) {
+        response->success = false;
+        response->message = "robot client is not connected";
+        return;
+      }
+      ClientConfigRobot robot(*client_);
+      const auto source = config_backup::local_source(robot, host_name());
+      std::vector<std::string> warnings;
+      const auto file = config_backup::build_export(robot, source, &warnings);
+      response->content = file.dump(2);
+      response->filename = config_backup::export_filename(source);
+      response->parameter_count = static_cast<int32_t>(file["parameters"].size());
+      response->warnings = warnings;
+      if (!request->path.empty()) {
+        std::ofstream out(request->path, std::ios::binary | std::ios::trunc);
+        out << response->content << "\n";
+        if (!out) {
+          throw std::runtime_error("cannot write " + request->path);
+        }
+        response->path = request->path;
+      }
+      response->success = true;
+      response->message = "exported " + std::to_string(response->parameter_count) + " parameters";
+    } catch (const std::exception & e) {
+      response->success = false;
+      response->message = e.what();
+    }
+  }
+
+  void handle_import_config(
+    const std::shared_ptr<rby1_msgs::srv::ImportConfig::Request> request,
+    const std::shared_ptr<rby1_msgs::srv::ImportConfig::Response> response)
+  {
+    std::lock_guard<std::mutex> lock(client_mutex_);
+    try {
+      if (!ensure_connected()) {
+        response->success = false;
+        response->message = "robot client is not connected";
+        return;
+      }
+      if (request->content.empty() && request->path.empty()) {
+        throw config_backup::ConfigError("give the file as path or content");
+      }
+      const auto file = config_backup::parse_file(
+        request->content.empty() ? read_file(request->path) : request->content);
+      ClientConfigRobot robot(*client_);
+      const auto local = config_backup::local_source(robot, host_name());
+      const auto preview = config_backup::build_preview(robot, file, local);
+
+      response->warnings = strings(preview["warnings"]);
+      for (const auto & p : preview["parameters"]) {
+        rby1_msgs::msg::ConfigItem item;
+        item.name = p["name"].get<std::string>();
+        item.type = p["type"].get<int>();
+        item.current_json = p["current"].dump();
+        item.incoming_json = p["incoming"].dump();
+        item.changed = p["changed"].get<bool>();
+        item.category = p["category"].get<std::string>();
+        item.selectable = p["selectable"].get<bool>();
+        item.restart_required = p["restart_required"].get<bool>();
+        item.note = p["note"].get<std::string>();
+        response->items.push_back(item);
+      }
+      for (const auto & m : preview["models"]) {
+        response->model_names.push_back(m["name"].get<std::string>());
+      }
+
+      config_backup::Selection selection;
+      selection.parameters = request->parameters.empty() ?
+        config_backup::default_parameters(preview, request->include_robot_specific) : request->parameters;
+      selection.parameters.erase(
+        std::remove_if(
+          selection.parameters.begin(), selection.parameters.end(), [&](const std::string & name) {
+            return std::find(request->exclude.begin(), request->exclude.end(), name) != request->exclude.end();
+          }),
+        selection.parameters.end());
+      selection.models = request->models;
+      for (auto & item : response->items) {
+        item.selected = std::find(selection.parameters.begin(), selection.parameters.end(), item.name) !=
+          selection.parameters.end();
+      }
+
+      if (request->dry_run) {
+        response->success = true;
+        response->message = "preview: " + std::to_string(selection.parameters.size()) + " parameters and " +
+          std::to_string(selection.models.size()) + " models selected";
+        return;
+      }
+      const auto snapshot = client_->read_state();
+      if (snapshot.control_state == 2 || snapshot.control_state == 3) {
+        response->success = false;
+        response->message = "import refused: a command is executing (deactivate the ros2_control controllers first)";
+        return;
+      }
+      const auto report = config_backup::apply(robot, file, local, selection);
+      response->applied = strings(report["applied"]);
+      response->failed = strings(report["failed"], "name");
+      response->skipped = strings(report["skipped"], "name");
+      response->rolled_back = report["rolled_back"].get<bool>();
+      if (report.contains("rollback_errors")) {
+        response->rollback_errors = strings(report["rollback_errors"]);
+      }
+      response->restart_required = strings(report["restart_required"]);
+      response->success = report["failed"].empty();
+      response->message = response->success ?
+        "applied " + std::to_string(response->applied.size()) + " items" +
+        (response->restart_required.empty() ? "" : "; restart the robot for " +
+        std::to_string(response->restart_required.size()) + " of them") :
+        "import failed and was rolled back";
     } catch (const std::exception & e) {
       response->success = false;
       response->message = e.what();

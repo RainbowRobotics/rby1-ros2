@@ -19,6 +19,7 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 namespace rby1_hardware_interface
@@ -96,6 +97,15 @@ struct RobotStateSnapshot
   ToolFlangeStatus right_tool_flange;
 };
 
+// Identity of the connected robot and core (rby1-sdk RobotInfo).
+struct RobotIdentity
+{
+  std::string model_name;
+  std::string model_version;
+  std::string core_version;
+  std::string sdk_version;
+};
+
 enum class ControlManagerCommand
 {
   kEnable,
@@ -159,6 +169,11 @@ public:
   CommandResult set_tool_flange_digital_output(const std::string & side, unsigned int channel, bool state);
   CommandResult get_parameter(const std::string & name, std::string & value);
   CommandResult set_parameter(const std::string & name, const std::string & value, bool write_db);
+  // Every core parameter with its type code (rb/api/parameter.proto: 0 int ... 5 array7).
+  CommandResult get_parameter_list(std::vector<std::pair<std::string, int>> & parameters);
+  // Stores a custom URDF on the robot PC (/root/.rby1/models/<name>.urdf).
+  CommandResult import_robot_model(const std::string & name, const std::string & urdf);
+  RobotIdentity robot_identity() const;
   CommandResult get_logs(unsigned int count, std::vector<std::string> & fault_logs, std::vector<std::string> & entries);
 
   // Maintenance (the robot manager only offers these with enable_maintenance_services).

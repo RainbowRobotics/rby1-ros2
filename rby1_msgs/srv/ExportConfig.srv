@@ -1,0 +1,15 @@
+# Export the robot configuration as an rby1-config file (format_version 1, the web UI format).
+# Core parameters only: port forward settings and the robot PC's custom models are not reachable over gRPC.
+
+# Also write the file here, on the host of the robot manager (empty: only return it in content).
+string path
+---
+bool success
+string message
+string path
+# The file (JSON).
+string content
+# Suggested file name, as the web UI names it: rby1-config-<model>-<YYYYmmdd-HHMMSS>.json.
+string filename
+int32 parameter_count
+string[] warnings

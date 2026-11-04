@@ -105,6 +105,30 @@ services, or `auto_enable:=true`). See [docs/SAFETY.md](docs/SAFETY.md) before m
 
 Stop and jog are whole-robot commands and live in the robot manager (`/rby1/stop`, `/rby1/jog`).
 
+### Save and load the robot configuration
+
+The robot manager reads and writes the configuration files of the rby1 web UI (`rby1-config`,
+format_version 1), so a file saved in either one loads in the other:
+
+```bash
+ros2 run rby1_robot_manager rby1_config export                     # rby1-config-a-<date>.json here
+ros2 run rby1_robot_manager rby1_config import FILE --dry-run      # what would change
+ros2 run rby1_robot_manager rby1_config import FILE                # apply (asks first)
+```
+
+The same rules as the web UI apply: `robot_model_name` is never imported, a file of another model is
+refused, parameters are applied all-or-nothing, and parameters read only at boot are reported. Over
+gRPC the driver cannot see three things the web backend reads on the robot PC, so:
+
+- the port forward settings are not exported, and are skipped on import (use the web UI);
+- custom models are not exported; models in a file are imported only when listed (`--models`), and
+  an imported model is not restored if the import is rolled back;
+- the file is never recognised as coming from this same robot, so robot-specific values
+  (battery_config, gravity, hotspot.*, model_name) are applied only with `--include-robot-specific`
+  or when named in `--only`.
+
+Import is refused while a command executes. Values are saved in the robot's parameter database.
+
 The TF tree follows REP 105: `odom → base_link → base → …`, with `odom → base_link` published by
 `base_velocity_controller` ([docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#frames-rep-105)).
 

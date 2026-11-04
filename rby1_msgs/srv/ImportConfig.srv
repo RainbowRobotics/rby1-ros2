@@ -1,0 +1,30 @@
+# Preview or apply an rby1-config file (written by the web UI or by ExportConfig).
+# Parameters are all-or-nothing: on the first failure every parameter already written is restored.
+
+# The file: a path on the host of the robot manager, or the JSON content itself (content wins).
+string path
+string content
+# Only build the preview.
+bool dry_run
+# Parameters to apply; empty applies the preview's default selection (changed, not robot-specific).
+string[] parameters
+# Removed from the selection.
+string[] exclude
+# Add the changed robot-specific values (battery_config, gravity, hotspot.*, model_name) to the default selection.
+bool include_robot_specific
+# Custom models from the file to import (empty: none).
+string[] models
+---
+bool success
+string message
+string[] warnings
+# Preview of every parameter in the file.
+rby1_msgs/ConfigItem[] items
+string[] model_names
+# Result of the import (empty for dry_run).
+string[] applied
+string[] failed
+string[] skipped
+bool rolled_back
+string[] rollback_errors
+string[] restart_required

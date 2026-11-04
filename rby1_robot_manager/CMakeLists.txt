@@ -16,6 +16,12 @@ find_package(rby1_msgs REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(std_srvs REQUIRED)
+find_package(nlohmann_json REQUIRED)
+
+add_library(rby1_config_backup STATIC src/config_backup.cpp)
+target_include_directories(rby1_config_backup PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
+target_link_libraries(rby1_config_backup PUBLIC nlohmann_json::nlohmann_json)
 
 add_executable(rby1_robot_manager_node
   src/rby1_robot_manager_node.cpp
@@ -29,9 +35,14 @@ ament_target_dependencies(rby1_robot_manager_node
   sensor_msgs
   std_srvs
 )
+target_link_libraries(rby1_robot_manager_node rby1_config_backup)
 
 install(
   TARGETS rby1_robot_manager_node
+  DESTINATION lib/${PROJECT_NAME}
+)
+install(
+  PROGRAMS scripts/rby1_config
   DESTINATION lib/${PROJECT_NAME}
 )
 
@@ -43,6 +54,12 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
   ament_cpplint(MAX_LINE_LENGTH 120)
   ament_uncrustify(MAX_LINE_LENGTH 120)
+  ament_flake8(MAX_LINE_LENGTH 120)
+
+  find_package(ament_cmake_gtest REQUIRED)
+  ament_add_gtest(test_config_backup test/test_config_backup.cpp
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/test)
+  target_link_libraries(test_config_backup rby1_config_backup)
 endif()
 
 ament_package()
