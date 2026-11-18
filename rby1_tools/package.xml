@@ -11,13 +11,12 @@
 
   <depend>rclcpp</depend>
   <depend>sensor_msgs</depend>
-  <depend>cv_bridge</depend>
   <depend>image_transport</depend>
   <exec_depend>compressed_image_transport</exec_depend>
   <depend>yaml-cpp</depend>
-  <depend>libopencv-dev</depend>
   <depend>geometry_msgs</depend>
   <depend>std_msgs</depend>
+  <depend>rby1_msgs</depend>
   <depend>tf2</depend>
   <depend>tf2_ros</depend>
   <depend>ament_index_cpp</depend>

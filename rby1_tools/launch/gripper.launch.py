@@ -53,6 +53,8 @@ ARGUMENTS = {
     'mount': ('', 'where each gripper sits on the robot; empty: config/gripper/gripper_mount.yaml'),
     'objects': ('', "the gripper's parts for the planning scene; empty: model/rby1_gripper/gripper.yaml"),
     'config': ('', "the driver's settings; empty: config/gripper/gripper_driver.yaml"),
+    'driver_namespace': ('rby1', "namespace of the running RB-Y1 driver (virtual false: its tool_flange_power switches "
+                                 "the motors' 12 V on)"),
 }
 
 
@@ -153,7 +155,8 @@ def setup(context):
             PythonLaunchDescriptionSource(os.path.join(
                 get_package_share_directory('rby1_moveit_objects'), 'launch', 'objects.launch.py')),
             launch_arguments={'config': mounted_objects(objects_path, mount, hands)}.items()))
-    overrides = {'hands': hands, 'joint_states_topic': joint_states_topic}
+    overrides = {'hands': hands, 'joint_states_topic': joint_states_topic,
+                 'driver_namespace': value['driver_namespace']}
     if value['virtual']:
         overrides['virtual'] = value['virtual'].lower() == 'true'
     nodes.append(Node(

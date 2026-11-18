@@ -69,7 +69,7 @@ git clone https://github.com/RainbowRobotics/rby1-ros2.git
 cd ..
 source /opt/ros/humble/setup.bash
 sudo rosdep init && rosdep update                # init once per PC; "already initialized" is fine
-rosdep install --from-paths src --ignore-src -y  # MoveIt 2, ros2_control and its controllers, cv_bridge, librealsense2, ...
+rosdep install --from-paths src --ignore-src -y  # MoveIt 2, ros2_control and its controllers, librealsense2, ...
 export RBY1_SDK_PATH=$HOME/sdk/rby1-sdk          # and in ~/.bashrc
 colcon build --symlink-install
 source install/setup.bash
@@ -84,7 +84,7 @@ optional; everything that talks to the driver — examples, MoveIt, tools on ano
 same one (`ros2 node list` shows `/rby1/rby1_ros2_driver` from any terminal of the domain).
 
 Humble and Jazzy both build from the same source. What was adjusted for Jazzy (2026-10-30, from a report of a Jazzy
-build): `cv_bridge.hpp` is used where it exists (`cv_bridge.h` on Humble); the MoveIt packages declare
+build): the MoveIt packages declare
 `joint_state_broadcaster` and `joint_trajectory_controller` and no longer `warehouse_ros_mongo` (not in apt);
 `joint_limits.yaml` writes the acceleration limit MoveIt Humble used by default (1.0 rad/s²), which MoveIt Jazzy
 refuses to plan without; the `demo.launch.py` have no `chrt` prefix (`ros2_control_node` sets its own real-time

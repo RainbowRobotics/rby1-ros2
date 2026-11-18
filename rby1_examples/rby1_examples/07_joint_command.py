@@ -2,15 +2,17 @@
 """
 Joint Command Example
 =====================
-Demonstrates joint position control of multiple body parts using the
+Demonstrates the control modes of a joint command, one per body part, with the
 Rby1JointCommand action. The example sends two sequential whole-body goals:
-  1. Ready Pose   – preset joint positions for a natural standing posture.
-  2. Zero Pose    – all joints returned to 0 rad.
+  1. Zero Pose    – every joint to 0 rad.
+  2. Target pose  – head: joint position; right arm: joint impedance (TARGET_RIGHT_ARM,
+                    IMPEDANCE_*); left arm: joint position; torso: joint group position,
+                    only the joints named in TORSO_JOINT_NAMES (use_group_joint).
 
 Sequence:
   1. Ensure robot is powered on and servos are active.
-  2. Send Ready Pose goal (torso + arms + head) and wait for completion.
-  3. Send Zero Pose goal and wait for completion.
+  2. Send the Zero Pose goal and wait for completion.
+  3. Send the target pose goal and wait for completion.
 
 Run:
   ros2 run rby1_examples 07_joint_command

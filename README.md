@@ -10,7 +10,7 @@ Please click the link below for more details.
 
 [RBY1 ROS 2 Driver Documentation](https://rainbowrobotics.github.io/rby1-dev/ros2/ros2_driver.html)
 
-## Overview
+## Overview 
 
 `rby1_ros2` is a unified ROS 2 driver package for controlling the Rainbow Robotics RBY1 robot.  
 It wraps the RBY1 C++ SDK into a ROS 2 node, providing state monitoring and multiple control modes (Joint Position, Cartesian Position, Impedance, Gravity Compensation, and Trajectory Streaming) through a clean action/service/topic interface.
@@ -72,8 +72,8 @@ rosdep install --from-paths src --ignore-src -y
 ```
 
 `rosdep` reads every `package.xml` in the workspace and installs what they declare as apt packages: MoveIt 2,
-`ros2_control` with its controller manager, joint state broadcaster and joint trajectory controller, `cv_bridge`/OpenCV
-and `librealsense2` (the camera publishers in `rby1_tools`). No MoveIt source build is needed, and the binaries also
+`ros2_control` with its controller manager, joint state broadcaster and joint trajectory controller, and
+`librealsense2` (the camera publisher in `rby1_tools`). No MoveIt source build is needed, and the binaries also
 work on the robot's UPC (Jetson).
 
 ```bash
@@ -81,7 +81,7 @@ work on the robot's UPC (Jetson).
 ros2 pkg list | grep moveit
 ```
 
-For an Intel RealSense (optional; a webcam does not need it), let a normal user open the camera — the ROS package does
+For an Intel RealSense camera (optional), let a normal user open the camera — the ROS package does
 not bring these rules:
 
 ```bash
@@ -266,7 +266,7 @@ ros2 run rby1_examples <example_name>
 | `04_joint_state_monitoring` | Prints the joint positions per part |
 | `05_gravity_compensation` | Gravity compensation on and off |
 | `06_zero_pose` | Moves every joint to 0 rad |
-| `07_joint_command` | Ready pose: joint position (right arm), joint impedance (left arm) |
+| `07_joint_command` | Zero pose, then a target pose: joint impedance (right arm), joint position (left arm, head), joint group position (three torso joints) |
 | `08_cartesian_command` | Ready pose, then a Cartesian target: cartesian position (right), cartesian impedance (left) |
 | `09_multi_controls` | Joint and Cartesian control of different parts at once |
 | `10_trajectory_joint_command` | A pre-computed trajectory through `follow_joint_trajectory` |
@@ -284,7 +284,7 @@ What each example does in detail, its values and the stream channels the control
 ### Visualization & Robot Description
 You can use the robot's basic TF structure and state publisher through the commands below. When implementing features related to rby1, please use the model files from the corresponding package. Details: [Manual — Description](Doc/manual/04_description.md).
 
-![Visualization](Doc/img/state_checker_guide_5.png)
+![Visualization](Doc/img/description_rviz.png)
 
 ```bash
 source install/setup.bash
@@ -308,6 +308,11 @@ ros2 launch rby1_moveit_m_1_2 demo.launch.py
 # or Fake hardware / simulation (no real robot required)
 # ros2 launch rby1_moveit_m_1_2 demo.launch.py use_fake_hardware:=true
 ```
+
+> [!WARNING]
+> A path MoveIt plans can take a long way round (a joint swung far, the elbow flipped) even between near poses. Watch
+> the planned path in RViz before executing, try it in the simulator first, and keep velocity and acceleration scaling
+> low on the robot. Details: [Manual — MoveIt](Doc/manual/06_moveit.md#demolaunchpy).
 
 Details: [Manual — MoveIt](Doc/manual/06_moveit.md#demolaunchpy); the planner and the scene below are in [Manual — Executor](Doc/manual/06_moveit.md#executor-rby1_moveit_executor), [Objects](Doc/manual/06_moveit.md#objects-rby1_moveit_objects) and [Scene](Doc/manual/06_moveit.md#scene).
 
@@ -380,11 +385,10 @@ In `rby1_bringup` this is the `ROS2_CONTROL` flag. Details: [Manual — Hardware
 
 | Tool | Launch | What it does |
 |---|---|---|
-| `camera_publisher` | `camera.launch.py` | A webcam (or an image or video file) through OpenCV: the image on `/<camera_name>/rgb/raw`, the camera model, and the camera's place on the robot on TF (`config/camera/webcam.yaml`, mounts in `config/camera/camera_mount.yaml`) |
-| `realsense_publisher` | `camera.launch.py camera:=realsense` | An Intel RealSense through librealsense directly: the same, with depth, both infrared cameras and a point cloud when they are switched on (`config/camera/realsense.yaml`) |
+| `realsense_publisher` | `camera.launch.py` | An Intel RealSense through librealsense directly: the colour image on `/<camera_name>/rgb/raw`, depth, both infrared cameras and a point cloud when they are switched on, the camera model, and the camera's place on the robot on TF (`config/camera/realsense.yaml`, mounts in `config/camera/camera_mount.yaml`) |
 | gripper | `gripper.launch.py` | The RB-Y1 gripper on the hands, by flag: `model` (its URDF and meshes, `model/rby1_gripper/`, on TF under `ee_right`/`ee_left` for RViz), `scene` (its body and fingers as parts in the MoveIt planning scene, `model/rby1_gripper/gripper.yaml`), and always its driver. Where it sits on each hand: `config/gripper/gripper_mount.yaml` |
-| `gripper_driver` | `gripper.launch.py [virtual:=false]` | `/rby1/<hand>_gripper/grasp` (true closes) and `/command` (each finger's opening, m) in, the fingers' state out (`config/gripper/gripper_driver.yaml`, positions 0 closed .. 1000 open). `virtual: true`: nothing moves. `virtual: false`: the gripper itself through the SDK's Dynamixel bus (`/dev/rby1_gripper`, on the UPC; built where `RBY1_SDK_PATH` is set); at start it homes each motor to both ends of its travel: the fingers move. On an RB-Y1 v1.3, whose robot model carries the gripper, `model:=false joint_states_topic:=/joint_states` feeds the model's finger joints |
-| `lidar_publisher` | `lidar.launch.py` | The LakiBeam1 2D LiDARs on the mobile base (two, up to four): `/lidar_front_left/scan`, `/lidar_front_right/scan` (`LaserScan`) and each sensor's place on TF (`config/lidar/lidar.yaml`). Run it on the PC the sensors send to (the UPC, 192.168.30.2) |
+| `gripper_driver` | `gripper.launch.py [virtual:=false]` | `/rby1/<hand>_gripper/grasp` (true closes) and `/command` (each finger's opening, m) in, the fingers' state out (`config/gripper/gripper_driver.yaml`, positions 0 closed .. 1000 open). `virtual: true`: nothing moves. `virtual: false`: the gripper itself through the SDK's Dynamixel bus (`/dev/rby1_gripper`, on the UPC; built where `RBY1_SDK_PATH` is set); at start it switches the tool flange's 12 V on through the running RB-Y1 driver, then homes each motor to both ends of its travel: the fingers move. On an RB-Y1 v1.3, whose robot model carries the gripper, `model:=false joint_states_topic:=/joint_states` feeds the model's finger joints |
+| `lidar_publisher` | `lidar.launch.py` | The LakiBeam1 2D LiDARs on the mobile base (two, up to four): `/lidar_front_left/scan`, `/lidar_front_right/scan` (`LaserScan`) and each sensor's place on TF (`config/lidar/lidar.yaml`). Run it on the PC the sensors send to (the UPC, 192.168.30.2). A sensor not found: set its IP as shown in the [LiDAR IP setting guide (PDF)](https://rainbowco-my.sharepoint.com/:b:/g/personal/support_rainbow-robotics_com/IQA1KkS0IzJMTonriHCW0pmoAVlSE7ezxouwOKSnkeB-Te4?e=2eDA5S) shows |
 | `lidar_merger` | `lidar.launch.py` | With `merge: true` in `lidar.yaml`: all the LiDARs as one 360° scan on the base, `/lidar_merged/scan`, in place of each one's topic |
 | `lidar_calibrate` | `lidar_calibrate.launch.py` | Run once: starts the LiDARs, finds from what they see in common how far off `lidar.yaml` places each against a reference one (x, y, yaw), prints the values to copy in, and stops |
 
@@ -394,7 +398,6 @@ the RB-Y1 Isaac ROS repository has one (`rby1_apriltag`). Details in [Manual —
 
 ```bash
 ros2 launch rby1_tools camera.launch.py                      # RealSense (needs: sudo apt install ros-$ROS_DISTRO-librealsense2)
-ros2 launch rby1_tools camera.launch.py camera:=webcam       # webcam, config/camera/webcam.yaml
 ros2 launch rby1_tools camera.launch.py rviz:=true           # with RViz showing the image
 
 ros2 launch rby1_tools gripper.launch.py                       # model on TF + virtual driver

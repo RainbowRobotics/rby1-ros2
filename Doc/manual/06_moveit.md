@@ -49,11 +49,24 @@ the package's `launch/rsp.launch.py` starts. That launch therefore renders the x
 (`use_fake_hardware`, `robot_ip`, `model`, `driver_namespace`) as `demo.launch.py` — before 2026-11-02 it used the
 xacro defaults, and on Jazzy the demo always ran on mock hardware whatever was asked for (plan and execute
 succeeded, the robot did not move; `ros2 control list_hardware_components -v` showed `mock_components/GenericSystem`).
+> [!WARNING]
+> **Check a planned trajectory before it runs.** OMPL is a sampling planner: the same goal can give a different path
+> each time, and a path can swing a joint far round, flip the elbow, or pass close to the body or the table on its way
+> even when start and goal are near. MoveIt checks the path only against what is in its planning scene. Watch the
+> planned path in RViz (MotionPlanning, Planned Path) before you execute it; start in the simulator or with
+> `use_fake_hardware:=true`, and on the robot with low velocity and acceleration scaling (0.1, the panel's default
+> here), the emergency stop within reach.
+
 In RViz: `You can start planning now` in the log, then plan and execute from the MotionPlanning panel. The launch
 ends when `ros2_control_node` or `move_group` dies. On a v1.3 the finger joints need the gripper controller's joint
 states ([Tools — Gripper](07_tools.md#gripper)). In `rby1_bringup` this is `MOVEIT_DEMO`.
 
 ## Executor (`rby1_moveit_executor`)
+
+The same caution applies here: the executor runs each plan as soon as it is made, without a preview. It plans to the
+joints the arm turns least to reach (see Arm shape below), which keeps most paths short, but OMPL can still find a
+roundabout one; try new targets in the simulator first, keep `velocity_scaling` low on the robot, and watch the
+planned path in its RViz.
 
 A planner that takes tool pose targets, plans with MoveIt (OMPL) around the planning scene and runs the trajectory
 through the driver's `follow_joint_trajectory` — no `ros2_control`.

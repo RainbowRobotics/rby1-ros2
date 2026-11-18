@@ -1,12 +1,11 @@
 """A camera on the robot as ROS topics, for Isaac ROS AprilTag in the container.
 
   ros2 launch rby1_tools camera.launch.py                         # RealSense (config/camera/realsense.yaml)
-  ros2 launch rby1_tools camera.launch.py camera:=webcam          # webcam (config/camera/webcam.yaml)
-  ros2 launch rby1_tools camera.launch.py config:=/path/my.yaml   # other settings (an image file: source in it)
+  ros2 launch rby1_tools camera.launch.py config:=/path/my.yaml   # other settings (another device: serial in it)
   ros2 launch rby1_tools camera.launch.py camera_name:=desk mount:=none   # a second camera, on no link
   ros2 launch rby1_tools camera.launch.py rviz:=true              # with RViz: the image and the markers
 
-Everything else is in the settings file: the device or file, size, frame rate,
+Everything else is in the settings file: the device, size, frame rate,
 exposure, which RealSense streams (use_rgb, use_depth, use_ir, use_point_cloud),
 compressed, the camera model. Topics and frames follow camera_name:
 /<camera_name>/rgb/raw (compressed: /<camera_name>/rgb/compressed) and
@@ -31,8 +30,10 @@ def generate_launch_description():
     camera_name = LaunchConfiguration('camera_name')
     parameters = [LaunchConfiguration('config'), {'camera_name': camera_name, 'mount': LaunchConfiguration('mount')}]
     return LaunchDescription([
-        DeclareLaunchArgument('camera', default_value='realsense', choices=['realsense', 'webcam'],
-                              description='realsense: librealsense; webcam: OpenCV (a device, an image or a video file)'),
+        # Which kind of camera, and so which publisher and settings file (config/camera/<camera>.yaml).
+        # Only realsense for now; another kind adds its choice, its node below and its settings file.
+        DeclareLaunchArgument('camera', default_value='realsense', choices=['realsense'],
+                              description='the kind of camera: realsense (librealsense)'),
         DeclareLaunchArgument('camera_name', default_value='camera',
                               description='first part of the topics and frames (/<camera_name>/..., <camera_name>_link)'),
         DeclareLaunchArgument('config', description='settings YAML',
@@ -44,9 +45,6 @@ def generate_launch_description():
         DeclareLaunchArgument('rviz', default_value='false', choices=['true', 'false'],
                               description='true: RViz with the image, the frames and the markers (config/camera/camera.rviz)'),
 
-        Node(package='rby1_tools', executable='camera_publisher', name=[camera_name, '_publisher'],
-             parameters=parameters, output='screen', on_exit=Shutdown(),
-             condition=LaunchConfigurationEquals('camera', 'webcam')),
         Node(package='rby1_tools', executable='realsense_publisher', name=[camera_name, '_publisher'],
              parameters=parameters, output='screen', on_exit=Shutdown(),
              condition=LaunchConfigurationEquals('camera', 'realsense')),

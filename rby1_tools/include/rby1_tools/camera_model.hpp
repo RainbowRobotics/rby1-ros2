@@ -1,5 +1,4 @@
-// Camera sources, a pinhole model for cameras nobody has calibrated yet, and the names and
-// mount a camera is published under.
+// Camera calibrations, and the names and mount a camera is published under.
 #pragma once
 
 #include <array>
@@ -10,21 +9,6 @@
 #include <sensor_msgs/msg/camera_info.hpp>
 
 namespace rby1_tools {
-
-// What `source` names: a video device (index "0" or "/dev/video0") or a file -- an
-// image, republished as it is, or a video.
-struct Source {
-  enum class Kind { device, image, video } kind;
-  int index = -1;     // device
-  std::string path;   // device node or file
-};
-Source parse_source(const std::string & source);
-
-// A distortion-free pinhole CameraInfo from the horizontal field of view -- enough to
-// start with; AprilTag distances are only as good as this guess until the camera is
-// calibrated (an intrinsics_file).
-sensor_msgs::msg::CameraInfo approximate_camera_info(int width, int height, double horizontal_fov_deg,
-                                                     const std::string & frame_id);
 
 // A calibrated camera: 3x3 camera matrix (row-major) and plumb_bob distortion
 // (k1, k2, p1, p2, k3) at the image size it was measured for.

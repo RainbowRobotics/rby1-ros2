@@ -10,7 +10,9 @@
 // virtual: false -- the gripper itself, through the SDK's Dynamixel bus, one motor per hand on
 // `device`, as SDK example 35 drives it: at start each motor is homed, pushed with
 // `homing_current` to one end and the other, 3 s each, until its travel spans 207°;
-// THE FINGERS MOVE, then go to `initial_position`. Then current-based position control with
+// THE FINGERS MOVE, then go to `initial_position`. Before that the motors' supply, the tool flange
+// output, is switched to `tool_flange_voltage` through the RB-Y1 driver's tool_flange_power service
+// (as SDK example 35 does); without the driver it warns and goes on. Then current-based position control with
 // `hold_current` as the current limit; the state is read back from the encoders. Built with
 // the real gripper only where the SDK is (RBY1_SDK_PATH); elsewhere only virtual: true runs.
 //
@@ -32,6 +34,9 @@
 #include <sensor_msgs/msg/joint_state.hpp>
 #include <std_msgs/msg/bool.hpp>
 #include <std_msgs/msg/float64.hpp>
+#ifdef RBY1_TOOLS_WITH_MSGS
+#include <rby1_msgs/srv/state_on_off.hpp>
+#endif
 
 #ifdef RBY1_TOOLS_WITH_SDK
 #include "rby1-sdk/base/dynamixel_bus.h"
@@ -56,6 +61,10 @@ public:
     homing_current_ = declare_parameter("homing_current", 0.5);
     hold_current_ = declare_parameter("hold_current", 5.0);
     inverted_ = declare_parameter("inverted", false);
+    tool_flange_voltage_ = declare_parameter("tool_flange_voltage", 12);
+    driver_namespace_ = declare_parameter("driver_namespace", "rby1");   // gripper.launch.py driver_namespace:=
+    while (!driver_namespace_.empty() && driver_namespace_.back() == '/') driver_namespace_.pop_back();
+    if (!driver_namespace_.empty() && driver_namespace_.front() != '/') driver_namespace_ = "/" + driver_namespace_;
     // The finger joints of the gripper's URDF -- gripper_finger_<r|l>1_joint (0..max_opening)
     // and _2_joint (-max_opening..0) -- for robot_state_publisher: gripper.launch.py's own
     // (/gripper/joint_states), or the robot's /joint_states on an RB-Y1 v1.3, whose URDF
@@ -104,7 +113,10 @@ public:
                   name.c_str(), base.c_str(), base.c_str(), base.c_str(), initial_position, initial,
                   virtual_ ? " (virtual, nothing moves)" : "");
     }
-    if (!virtual_) start_real(device, homing);
+    if (!virtual_) {
+      power_tool_flange();
+      start_real(device, homing);
+    }
     timer_ = create_wall_timer(std::chrono::duration<double>(dt_), [this] { cycle(); });
   }
 
@@ -179,7 +191,9 @@ private:
     for (const auto & hand : hands_) {
       if (!bus_->Ping(hand->id)) {
         throw std::runtime_error(hand->name + " gripper: Dynamixel id " + std::to_string(hand->id) +
-                                 " does not answer on " + device);
+                                 " does not answer on " + device + " -- is the tool flange's 12 V on? (" +
+                                 "ros2 service call " + driver_namespace_ + "/tool_flange_power " +
+                                 "rby1_msgs/srv/StateOnOff \"{state: true, parameters: '12'}\")");
       }
       RCLCPP_INFO(get_logger(), "%s gripper: Dynamixel id %d on %s", hand->name.c_str(), hand->id, device.c_str());
     }
@@ -299,7 +313,50 @@ private:
   bool read_real() { return false; }
 #endif
 
+  // The motors' supply: switch the tool flange output (both hands) to tool_flange_voltage through the
+  // RB-Y1 driver, as SDK example 35 does before it opens the bus, and give the motors 1 s to boot.
+  // 0 leaves the flange as it is. Without the driver (or without rby1_msgs in this build) it warns:
+  // the flange may be on already, and the Dynamixel ping that follows says so if it is not.
+  void power_tool_flange() {
+    if (tool_flange_voltage_ == 0) return;
+    if (tool_flange_voltage_ != 12 && tool_flange_voltage_ != 24) {
+      throw std::invalid_argument("tool_flange_voltage is 0 (leave it), 12 or 24, not " +
+                                  std::to_string(tool_flange_voltage_));
+    }
+#ifdef RBY1_TOOLS_WITH_MSGS
+    auto caller = std::make_shared<rclcpp::Node>("gripper_driver_tool_flange");
+    auto client = caller->create_client<rby1_msgs::srv::StateOnOff>(driver_namespace_ + "/tool_flange_power");
+    if (!client->wait_for_service(std::chrono::seconds(3))) {
+      RCLCPP_WARN(get_logger(), "%s/tool_flange_power is not there (is the RB-Y1 driver running?): the tool "
+                  "flange's %ld V is not switched on here", driver_namespace_.c_str(), tool_flange_voltage_);
+      return;
+    }
+    auto request = std::make_shared<rby1_msgs::srv::StateOnOff::Request>();
+    request->state = true;
+    request->parameters = std::to_string(tool_flange_voltage_);
+    auto future = client->async_send_request(request);
+    if (rclcpp::spin_until_future_complete(caller, future, std::chrono::seconds(5)) !=
+        rclcpp::FutureReturnCode::SUCCESS) {
+      RCLCPP_WARN(get_logger(), "%s/tool_flange_power did not answer", driver_namespace_.c_str());
+      return;
+    }
+    const auto response = future.get();
+    if (!response->success) {
+      RCLCPP_WARN(get_logger(), "tool flange %ld V refused: %s", tool_flange_voltage_, response->message.c_str());
+      return;
+    }
+    RCLCPP_INFO(get_logger(), "tool flange output %ld V on (both hands); waiting 1 s for the motors",
+                tool_flange_voltage_);
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+#else
+    RCLCPP_WARN(get_logger(), "built without rby1_msgs: switch the tool flange's %ld V on yourself (%s/"
+                "tool_flange_power)", tool_flange_voltage_, driver_namespace_.c_str());
+#endif
+  }
+
   bool virtual_ = true;
+  int64_t tool_flange_voltage_ = 12;
+  std::string driver_namespace_ = "/rby1";   // normalized: "/rby1", or "" for none
   std::vector<std::shared_ptr<Hand>> hands_;
   rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr joint_states_;
   double max_opening_ = 0.05;

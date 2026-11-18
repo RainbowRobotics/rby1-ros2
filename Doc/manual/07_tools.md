@@ -8,16 +8,16 @@ What sits on the robot besides the robot: cameras and their place on it, the gri
 
 ### Overview
 
-Publishes a camera's images, its model and its place on the robot, so a marker detector or any other vision node —
-on this machine or another — only needs topics. Two kinds: an Intel RealSense through librealsense directly (no
-realsense-ros; only the streams switched on are opened), and a webcam through OpenCV (or an image or video file).
+Publishes an Intel RealSense camera's images, its model and its place on the robot, so a marker detector or any other
+vision node — on this machine or another — only needs topics. It reads the camera through librealsense directly (no
+realsense-ros; only the streams switched on are opened).
 
-![Camera publishers: structure and topics, under the default camera_name](../img/camera_publishers.png)
+![Camera publisher: structure and topics, under the default camera_name](../img/camera_publishers.png)
 
 ```bash
-ros2 launch rby1_tools camera.launch.py                          # RealSense (config/camera/realsense.yaml)
-ros2 launch rby1_tools camera.launch.py camera:=webcam           # webcam (config/camera/webcam.yaml)
-ros2 launch rby1_tools camera.launch.py config:=/path/my.yaml    # other settings: another device, a file, a calibration
+ros2 launch rby1_tools camera.launch.py                          # config/camera/realsense.yaml
+ros2 launch rby1_tools camera.launch.py config:=/path/my.yaml    # other settings: another device (serial), a calibration
+ros2 launch rby1_tools camera.launch.py mount:=head_tilted       # another place on the robot (camera_mount.yaml)
 ros2 launch rby1_tools camera.launch.py camera_name:=desk mount:=none   # a second camera, on no link
 ros2 launch rby1_tools camera.launch.py rviz:=true               # with RViz (config/camera/camera.rviz)
 ```
@@ -26,7 +26,7 @@ ros2 launch rby1_tools camera.launch.py rviz:=true               # with RViz (co
 
 | Launch argument | Default | Meaning |
 |-----------------|---------|---------|
-| `camera` | `realsense` | `realsense` or `webcam` (a device, an image or a video file: `source` in the settings) |
+| `camera` | `realsense` | The kind of camera: which publisher runs and which settings file is the default. Only `realsense` for now |
 | `camera_name` | `camera` | First part of the topics and frames: `/<camera_name>/…`, `<camera_name>_link`. Each camera of a robot gets its own |
 | `config` | `config/camera/<camera>.yaml` | Settings file |
 | `mount` | `head_default` | Where the camera sits: a name in `config/camera/camera_mount.yaml`; `none`: on no link |
@@ -49,19 +49,8 @@ Everything else is set in the settings file; the launch file is written out flat
 | `skip_frames` | `10` | Frames dropped at start while the exposure settles |
 | `intrinsics_file` | `""` | Colour calibration in `config/camera/intrinsics/` (or an absolute path); empty: the factory calibration |
 
-`config/camera/webcam.yaml` (`camera_publisher`):
-
-| Setting | Default | Meaning |
-|---------|---------|---------|
-| `source` | `"0"` | Device number, `/dev/videoN`, or a file: an image (published over and over) or a video (looped) |
-| `width`, `height`, `fps` | `1280`, `720`, `30.0` | Asked of the camera (the size it gives is used) |
-| `auto_exposure`, `exposure` | `true`, `100.0` | Manual exposure in the driver's unit (V4L2: 100 µs) |
-| `compressed` | `false` | `true`: the image as JPEG on `…/rgb/compressed` only, no raw topic |
-| `intrinsics_file` | `""` | A calibration in `config/camera/intrinsics/` (or an absolute path); empty: none |
-| `horizontal_fov` | `69.0` | Horizontal field of view (deg) of the pinhole model used without a calibration; distances are then approximate |
-
 `config/camera/camera_mount.yaml`: one entry per place a camera goes — `<name>: {parent, xyz (m), rpy (rad)}`. Only
-`head_default` is there now.
+`head_default` is there now; how to measure and add one is in [Tips — Placing the camera](#tips).
 
 ### Topics
 
@@ -83,18 +72,48 @@ on `info`.
 | `/<camera_name>/point_cloud` | `sensor_msgs/PointCloud2` | RealSense, `use_point_cloud` | x, y, z in m, one point per depth pixel (NaN without depth) |
 | TF `<parent> → <camera_name>_link` | static | `mount` not `none` | Where the camera sits: the `mount` entry (`head_default`: 22 mm forward and 40 mm up of `link_head_2`) |
 | TF `<camera_name>_link → <camera_name>_optical_frame` | static | always | Frame of the colour image (z forward, x right, y down) |
-| TF `<camera_name>_optical_frame → <camera_name>_depth_optical_frame` | static | RealSense, depth or `use_ir` | Depth and left infrared frame, by the device's extrinsics |
-| TF `<camera_name>_optical_frame → <camera_name>_ir_right_optical_frame` | static | RealSense, `use_ir` | Right infrared frame, by the device's extrinsics |
+| TF `<camera_name>_optical_frame → <camera_name>_depth_optical_frame` | static | depth or `use_ir` | Depth and left infrared frame, by the device's extrinsics |
+| TF `<camera_name>_optical_frame → <camera_name>_ir_right_optical_frame` | static | `use_ir` | Right infrared frame, by the device's extrinsics |
 
 ### Tips
 
-- **Mounts**
+- **Placing the camera (extrinsics)**
 
-  Add an entry to `camera_mount.yaml` per place a camera goes, with values measured on the robot.
+  Where the camera sits on the robot — its extrinsic parameters — is one transform, `<parent> → <camera_name>_link`,
+  taken from an entry of `camera_mount.yaml`; the node publishes it as static TF and adds the image frames below it
+  (`<camera_name>_optical_frame` and, from the device's own calibration, depth and infrared). `<camera_name>_link`
+  sits at the colour lens with x forward (out of the lens), y left and z up. Marker poses and the point cloud reach
+  the robot's frames only through it, so measure it. There is no automatic camera-to-robot calibration in this
+  repository: the values are measured, then checked.
+
+  1. Choose the link the camera is fixed to: `link_head_2` on the head, `link_right_arm_6` / `ee_right` on a wrist,
+     `link_torso_5` or `base` for one fixed to the body.
+  2. Measure from that link's origin to the colour lens, along the link's axes: `xyz` in m. Measure how the camera is
+     turned against the link: `rpy` in rad, roll about x, pitch about y, yaw about z (`setRPY`, as `ros2 run
+     tf2_ros static_transform_publisher` takes them). A camera tilted 30° down is pitch `+0.524`; one turned to
+     look left is yaw `+`.
+  3. Add an entry under a new name and start the camera with it (with `--symlink-install` the edit needs no rebuild):
+
+     ```yaml
+     head_tilted:                 # camera_mount.yaml
+       parent: link_head_2
+       xyz: [0.03, 0.0, 0.05]     # m, in link_head_2
+       rpy: [0.0, 0.524, 0.0]     # rad: tilted 30 deg down
+     ```
+
+     ```bash
+     ros2 launch rby1_tools camera.launch.py mount:=head_tilted
+     ```
+
+  4. Check it. `ros2 run tf2_ros tf2_echo link_head_2 camera_link` shows what is published. In RViz (Fixed Frame
+     `base`, the robot model and TF on, `use_point_cloud: true`), the point cloud of the table or of the robot's own
+     hand should fall where the model has them. With a marker detector, put a marker where you know it is on the
+     robot (on the gripper, say), compare its `target_marker_<id>` frame with that place
+     (`ros2 run tf2_ros tf2_echo base target_marker_<id>`), and correct `xyz` / `rpy` by the difference.
 
 - **Several cameras**
 
-  One launch each, with its own `camera_name`, `mount` and settings (and `serial` for a RealSense).
+  One launch each, with its own `camera_name`, `mount` and settings (`serial` names the device).
 
 - **Calibration**
 
@@ -112,7 +131,7 @@ on `info`.
 
 - **RealSense setup**
 
-  Needs `ros-$ROS_DISTRO-librealsense2` (installed by `rosdep`; without it only this node is not built) and, for a
+  Needs `ros-$ROS_DISTRO-librealsense2` (installed by `rosdep`; without it the camera node is not built) and, for a
   normal user, the udev rules:
 
   ```bash
@@ -136,14 +155,15 @@ always the driver:
 
 - `virtual: true` (default): nothing moves; the reported fingers go where they are told.
 - `virtual: false`: the gripper itself, through the SDK's Dynamixel bus; the state is read from its encoders. Run the
-  launch on the PC the gripper's USB is plugged into (the UPC).
+  launch on the PC the gripper's USB is plugged into (the UPC), with the RB-Y1 driver running: the gripper's motors
+  run on the tool flange's 12 V, which the driver switches on (`tool_flange_power`) when the gripper driver starts.
 
 ![Gripper: structure and topics](../img/gripper.png)
 
 ```bash
 ros2 launch rby1_tools gripper.launch.py                                 # model on TF + virtual driver
 ros2 launch rby1_tools gripper.launch.py scene:=true                     # and its parts in the planning scene (needs a move_group)
-ros2 launch rby1_tools gripper.launch.py virtual:=false                  # the gripper itself (on the UPC)
+ros2 launch rby1_tools gripper.launch.py virtual:=false                  # the gripper itself (on the UPC; the RB-Y1 driver running)
 ros2 launch rby1_tools gripper.launch.py hands:=right                    # one hand
 ros2 launch rby1_tools gripper.launch.py model:=false joint_states_topic:=/joint_states   # RB-Y1 v1.3
 ros2 topic pub --once -w 1 /rby1/right_gripper/grasp std_msgs/msg/Bool "{data: true}"         # close
@@ -161,6 +181,7 @@ ros2 topic echo /rby1/right_gripper/state
 | `hands` | `right,left` | `right`, `left`, or both |
 | `joint_states_topic` | `/gripper/joint_states` when `model` is on, else none | Where the driver publishes the finger joints' states; `/joint_states` on a v1.3 |
 | `urdf`, `mount`, `objects`, `config` | the package's files below | Other files, by path |
+| `driver_namespace` | `rby1` | Namespace of the running RB-Y1 driver: with `virtual: false` its `tool_flange_power` switches the motors' 12 V on |
 
 | File | What it holds |
 |---|---|
@@ -181,6 +202,7 @@ ros2 topic echo /rby1/right_gripper/state
 | `rate` | `50.0` Hz | State messages (real: also the control cycle) |
 | `speed` | `0.05` m/s | Virtual only: how fast the reported fingers move |
 | `device` | `/dev/rby1_gripper` | Real only: the SDK's gripper device |
+| `tool_flange_voltage` | `12` | Real only: the motors' supply. At start the RB-Y1 driver's `tool_flange_power` (launch argument `driver_namespace`) switches both tool flange outputs to it (then 1 s for the motors to boot), as SDK example 35 does; `0` leaves the flange as it is |
 | `right_id`, `left_id` | `0`, `1` | Real only: Dynamixel id of each hand's motor |
 | `homing`, `homing_current` | `true`, `0.5` A | Real only: at start, run each motor to both ends (3 s each way, up to 3 rounds) to learn its travel; a travel under 207° stops the driver |
 | `hold_current` | `5.0` | Real only: current limit of the position control |
@@ -219,8 +241,17 @@ The driver, per hand (`<hand>`: `right`, `left`), virtual or real alike:
 - **Real gripper** (`virtual: false`)
 
   Run the launch on the PC the gripper's USB is plugged into (the UPC); the real gripper is built in only where
-  `RBY1_SDK_PATH` is set (elsewhere the driver stops with that reason). At start it homes each motor to both ends —
-  **the fingers move** — then goes to `initial_position`. Compiled, not yet run on a gripper.
+  `RBY1_SDK_PATH` is set (elsewhere the driver stops with that reason). Start the RB-Y1 driver first, with the robot
+  powered: the gripper driver first switches the tool flange's 12 V on through it, then homes each motor to both
+  ends — **the fingers move** — and goes to `initial_position`. Without the driver it warns and goes on; when the
+  motors then do not answer (`Dynamixel id … does not answer`), switch the flange on by hand and start again:
+
+  ```bash
+  ros2 service call /rby1/tool_flange_power rby1_msgs/srv/StateOnOff "{state: true, parameters: '12'}"
+  ```
+
+  A workspace without `rby1_msgs` (only `rby1_tools` copied to the UPC) builds a gripper driver that cannot switch
+  the flange itself; copy `rby1_msgs` along. Not yet run on a gripper.
 
 - **`ros2 topic pub --once`**
 
@@ -363,6 +394,15 @@ Merged (`merge: true`):
   ```bash
   sudo apt install tcpdump
   ```
+
+- **Sensor not found (its IP address)**
+
+  Each sensor answers on the address it keeps (the front pair: 192.168.30.10 and .11) and sends to the host and port
+  it keeps. When `ping <sensor_ip>` gets no answer, when `curl http://<sensor_ip>/api/v1/sensor/overview` finds
+  nothing, or when the node warns `ignoring packets from <address>` (a sensor at another address than `sensor_ip`),
+  the sensor's address is not the one `lidar.yaml` expects. Set the sensor's IP address, host and port as shown in
+  the [LiDAR IP setting guide (PDF)](https://rainbowco-my.sharepoint.com/:b:/g/personal/support_rainbow-robotics_com/IQA1KkS0IzJMTonriHCW0pmoAVlSE7ezxouwOKSnkeB-Te4?e=2eDA5S) — or put the address it has into `sensor_ip`, then
+  start `lidar.launch.py` again. Each sensor needs its own address and port.
 
 - **Sensor settings**
 

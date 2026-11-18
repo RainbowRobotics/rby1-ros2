@@ -1,15 +1,15 @@
 # Camera calibrations
 
 Put a camera's calibration here and name it in the camera's settings
-(`config/camera/webcam.yaml` or `config/camera/realsense.yaml`):
+(`config/camera/realsense.yaml`):
 
 ```yaml
     intrinsics_file: "d435_head.yaml"   # a file in this folder; an absolute path also works
 ```
 
 Rebuild `rby1_tools` after adding a file (`colcon build --packages-select rby1_tools`): the camera
-nodes read the installed copy of this folder. Empty `intrinsics_file` means no calibration file: a
-RealSense uses its factory calibration, a webcam a pinhole guessed from `horizontal_fov`.
+node reads the installed copy of this folder. Empty `intrinsics_file` means no calibration file: the
+RealSense uses its factory calibration.
 
 The file is the camera matrix and distortion measured at one image size. Another size with the same
 aspect ratio is scaled; another aspect ratio is refused (calibrate at that size). Either layout works.

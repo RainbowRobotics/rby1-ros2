@@ -1,0 +1,73 @@
+# RViz for rby1_state_publisher.launch.py: the robot model from /robot_description and its frames,
+# on base. Move the joints with the joint_state_publisher_gui window the launch opens.
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+    Splitter Ratio: 0.5
+    Tree Height: 300
+  - Class: rviz_common/Views
+    Name: Views
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Class: rviz_default_plugins/Grid
+      Name: Grid
+      Enabled: true
+      Cell Size: 0.5
+      Plane Cell Count: 10
+      Reference Frame: <Fixed Frame>
+      Value: true
+    - Class: rviz_default_plugins/RobotModel
+      Name: RobotModel
+      Enabled: true
+      Alpha: 1
+      Description Source: Topic
+      Description Topic:
+        Value: /robot_description
+        Depth: 5
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Durability Policy: Transient Local
+      Visual Enabled: true
+      Collision Enabled: false
+      Value: true
+    - Class: rviz_default_plugins/TF
+      Name: TF
+      Enabled: true
+      Marker Scale: 0.3
+      Show Names: false
+      Show Axes: true
+      Show Arrows: false
+      Frame Timeout: 15
+      Value: true
+  Enabled: true
+  Global Options:
+    Fixed Frame: base
+    Background Color: 48; 48; 48
+    Frame Rate: 30
+  Tools:
+    - Class: rviz_default_plugins/Interact
+    - Class: rviz_default_plugins/MoveCamera
+    - Class: rviz_default_plugins/Select
+    - Class: rviz_default_plugins/Measure
+  Value: true
+  Views:
+    Current:
+      Class: rviz_default_plugins/Orbit
+      Name: Current View
+      Distance: 3.2
+      Focal Point:
+        X: 0.0
+        Y: 0.0
+        Z: 0.8
+      Pitch: 0.35
+      Yaw: 0.6
+      Target Frame: <Fixed Frame>
+    Saved: ~
+Window Geometry:
+  Height: 900
+  Width: 1400
+  Displays:
+    collapsed: false
+  Views:
+    collapsed: true

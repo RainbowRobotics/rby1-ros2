@@ -51,11 +51,12 @@ Sequence:
 Watch: READY, then for every target EXECUTING ... and DONE with "hand is 0.4 mm
 from the target" under it, or FAILED: <reason>.
 
-Try it with example 16, which publishes two poses in turn (12 cm below the
-right hand at the ready pose, and 50 cm above that), each in its own terminal:
-  ros2 run rby1_examples 15_cartesian_target_move
-  ros2 run rby1_examples 16_target_shuttle_publisher
-  ros2 topic echo /rby1/right_arm/target_status std_msgs/msg/String
+Try it with example 16, which publishes two poses near the right hand's ready pose
+in turn, each in its own terminal:
+  terminal 1:  ros2 launch rby1_driver rby1_ros2_driver.launch.py
+  terminal 2:  ros2 run rby1_examples 15_cartesian_target_move
+  terminal 3:  ros2 run rby1_examples 16_target_shuttle_publisher
+  terminal 4:  ros2 topic echo /rby1/right_arm/target_status std_msgs/msg/String
 
 Before: the RB-Y1 driver, the robot powered and its servos on, the arm bent
 (ros2 run rby1_examples 06_zero_pose turns it on; a target executor's launch bends

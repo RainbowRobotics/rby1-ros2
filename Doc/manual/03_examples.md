@@ -23,7 +23,7 @@ Examples 15 and 16 take theirs as ROS parameters; the block holds their defaults
 | `04_joint_state_monitoring` | Prints the joint positions per part | `joint_states` (`PartJointStates`) |
 | `05_gravity_compensation` | Gravity compensation on, a pause for direct teaching, off | `gravity_compensation` |
 | `06_zero_pose` | Every joint to 0 rad in one goal | `robot_joint` |
-| `07_joint_command` | The ready pose: joint position for the right arm, joint impedance for the left | `robot_joint` |
+| `07_joint_command` | Zero pose, then a target pose with one control mode per part: joint impedance for the right arm, joint position for the left arm and the head, joint group position for three torso joints (`use_group_joint`, only the joints named in `joint_names`) | `robot_joint` |
 | `08_cartesian_command` | The ready pose, then a Cartesian target per arm: position (right), impedance (left) | `robot_cartesian` |
 | `09_multi_controls` | Joint and Cartesian control of different parts at once | both |
 | `10_trajectory_joint_command` | A pre-computed whole-body trajectory, in position control and again in joint impedance | `follow_joint_trajectory`, `stream_control`, `set_trajectory_impedance` |
@@ -56,6 +56,36 @@ interface](06_moveit.md#target-interface)): a target is one `std_msgs/Float64Mul
 `/rby1/<arm>/target_pose`, the row-major 4×4 pose of the arm's tool frame in `base`, answered on
 `/rby1/<arm>/target_status`.
 
+Run them together, one terminal each, with `source install/setup.bash` in every terminal. Before terminal 2 the robot
+must be powered, its servos on and the right arm bent (see the notes under example 15). Stop with Ctrl+C in terminal 3,
+then terminal 2.
+
+### Terminal 1 — the driver
+
+```bash
+ros2 launch rby1_driver rby1_ros2_driver.launch.py
+```
+
+### Terminal 2 — example 15, which moves the hand
+
+```bash
+ros2 run rby1_examples 15_cartesian_target_move                              # READY, then serves targets until Ctrl+C
+ros2 run rby1_examples 15_cartesian_target_move --ros-args -p mode:=stream   # or: a stream of small steps, up to 10 cm/s
+```
+
+### Terminal 3 — example 16, which sends the targets
+
+```bash
+ros2 run rby1_examples 16_target_shuttle_publisher                           # two points near the ready pose, in turn
+ros2 run rby1_examples 16_target_shuttle_publisher --ros-args -p period:=8.0 # or: more time per target (stream mode)
+```
+
+### Terminal 4 — the answers (optional)
+
+```bash
+ros2 topic echo /rby1/right_arm/target_status std_msgs/msg/String            # EXECUTING …, DONE
+```
+
 ### `15_cartesian_target_move`
 
 The simplest target executor: the driver alone, no planner, **nothing is checked for collisions**. Until Ctrl+C it
@@ -69,15 +99,6 @@ obstacles use the [planner](06_moveit.md#executor-rby1_moveit_executor) instead.
 | `DONE` | The hand ended within `tolerance` of the target (its log adds `hand is … mm from the target`) |
 | `FAILED: <reason and what to do>` | The driver refused or cut the move short, the move took longer than `timeout`, or the hand ended further than `tolerance` away |
 | `FAILED: rejected target: …` | Not a pose: not 16 finite values, bottom row not 0 0 0 1, or not a rotation |
-
-```bash
-ros2 run rby1_examples 15_cartesian_target_move                              # READY, then serves targets until Ctrl+C
-ros2 run rby1_examples 16_target_shuttle_publisher                           # another terminal: two points near the ready pose, in turn
-ros2 topic echo /rby1/right_arm/target_status std_msgs/msg/String            # a third: EXECUTING …, DONE
-
-ros2 run rby1_examples 15_cartesian_target_move --ros-args -p mode:=stream   # instead: a stream of small steps, up to 10 cm/s
-ros2 run rby1_examples 16_target_shuttle_publisher --ros-args -p period:=8.0
-```
 
 | Parameter | Default | Meaning |
 |-----------|---------|---------|
@@ -114,6 +135,8 @@ the arm is whatever listens: example 15, the planner, or the cuMotion executor o
 | `target_topic`, `status_topic` | `/rby1/right_arm/target_pose`, `/rby1/right_arm/target_status` | `/rby1/left_arm/…` for the left arm, with points on the left side |
 | `point_a`, `point_b` | `[0.463, -0.367, 1.084, -1.571, -1.071, 1.571]`, `[0.413, -0.367, 1.034, -1.571, -1.071, 1.571]` | x, y, z (m, `base`), roll, pitch, yaw (rad; Rz(yaw) Ry(pitch) Rx(roll)) of the tool frame. Six values, each a float (`1.0`, not `1`). The defaults are 5 cm forward and up of the right hand at the ready pose (which is at (0.413, −0.367, 1.034)) and back: within reach of example 15's IK and of the planner alike |
 | `period` | `5.0` | Seconds from one target to the next; longer than a move takes (`8.0` around an obstacle) |
+
+Other targets, in terminal 3 in place of the default command:
 
 ```bash
 ros2 run rby1_examples 16_target_shuttle_publisher --ros-args -p period:=8.0 \

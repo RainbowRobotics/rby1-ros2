@@ -198,7 +198,7 @@ def generate_launch_description():
         parts.append(IncludeLaunchDescription(
             launch_file('rby1_tools', 'camera.launch.py'),
             launch_arguments={
-                'camera': camera['camera'],             # realsense or webcam
+                'camera': camera['camera'],             # the kind of camera: realsense
                 'camera_name': camera['camera_name'],
                 'config': camera['config'] or os.path.join(
                     config_dir('rby1_tools'), 'camera', f"{camera['camera']}.yaml"),
@@ -216,6 +216,7 @@ def generate_launch_description():
                 'hands': gripper['hands'],
                 'mount': gripper['mount'],                      # '': its config/gripper/gripper_mount.yaml
                 'config': gripper['config'],                    # '': the driver's default settings
+                'driver_namespace': driver['namespace'],
                 # v1.3: the robot URDF's finger joints take their state from the driver
                 'joint_states_topic': '/joint_states' if version.startswith('1.3') else '',
             }.items())

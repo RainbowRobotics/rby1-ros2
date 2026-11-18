@@ -1,4 +1,4 @@
-// Camera sources and the uncalibrated pinhole; no ROS graph, no camera.
+// Camera calibrations, names and mounts; no ROS graph, no camera.
 #include <gtest/gtest.h>
 
 #include <cmath>
@@ -10,34 +10,12 @@
 
 using namespace rby1_tools;
 
-TEST(Source, DevicesAndFilesAreTold) {
-  EXPECT_EQ(parse_source("0").kind, Source::Kind::device);
-  EXPECT_EQ(parse_source("2").index, 2);
-  EXPECT_EQ(parse_source("/dev/video4").index, 4);
-  EXPECT_EQ(parse_source("/tmp/tag.PNG").kind, Source::Kind::image);
-  EXPECT_EQ(parse_source("/tmp/walk.mp4").kind, Source::Kind::video);
-  EXPECT_THROW(parse_source(""), std::invalid_argument);
-  EXPECT_THROW(parse_source("/dev/videoX"), std::invalid_argument);
-}
-
-TEST(Pinhole, FocalLengthFollowsTheFieldOfView) {
-  const auto info = approximate_camera_info(1280, 720, 90.0, "camera_optical_frame");
-  EXPECT_NEAR(info.k[0], 640.0, 1e-9);  // 90 deg across 1280 px: f = 640
-  EXPECT_NEAR(info.k[4], 640.0, 1e-9);
-  EXPECT_NEAR(info.k[2], 639.5, 1e-9);
-  EXPECT_NEAR(info.k[5], 359.5, 1e-9);
-  EXPECT_EQ(info.p[0], info.k[0]);
-  EXPECT_EQ(info.header.frame_id, "camera_optical_frame");
-  EXPECT_EQ(info.width, 1280u);
-  EXPECT_THROW(approximate_camera_info(1280, 720, 0.5, "c"), std::invalid_argument);
-  EXPECT_THROW(approximate_camera_info(0, 720, 60.0, "c"), std::invalid_argument);
-}
-
 namespace {
 
-std::string write_file(const std::string & name, const std::string & text) {
+// `content` in a file of that name in the system's temp folder; its path.
+std::string write_file(const std::string & name, const std::string & content) {
   const auto path = (std::filesystem::temp_directory_path() / name).string();
-  std::ofstream(path) << text;
+  std::ofstream(path) << content;
   return path;
 }
 

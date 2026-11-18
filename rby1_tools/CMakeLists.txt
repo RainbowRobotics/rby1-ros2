@@ -10,7 +10,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
-find_package(cv_bridge REQUIRED)
 find_package(image_transport REQUIRED)
 find_package(yaml-cpp REQUIRED)
 # librealsense2: ROS's build (ros-humble-librealsense2) only. Intel's own package carries
@@ -19,7 +18,6 @@ find_package(yaml-cpp REQUIRED)
 # was installed remembers Intel's (realsense2_DIR in the cache) and would keep linking it.
 unset(realsense2_DIR CACHE)
 find_package(realsense2 QUIET PATHS /opt/ros/$ENV{ROS_DISTRO} NO_DEFAULT_PATH)
-find_package(OpenCV REQUIRED COMPONENTS core imgcodecs videoio imgproc)
 find_package(geometry_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(tf2 REQUIRED)
@@ -32,11 +30,6 @@ target_include_directories(${PROJECT_NAME}_core PUBLIC ${CMAKE_CURRENT_SOURCE_DI
 target_include_directories(${PROJECT_NAME}_core SYSTEM PRIVATE ${EIGEN3_INCLUDE_DIR})
 ament_target_dependencies(${PROJECT_NAME}_core sensor_msgs)
 target_link_libraries(${PROJECT_NAME}_core yaml-cpp)
-
-add_executable(camera_publisher src/camera_publisher.cpp)
-target_link_libraries(camera_publisher ${PROJECT_NAME}_core ${OpenCV_LIBS})
-ament_target_dependencies(camera_publisher rclcpp sensor_msgs cv_bridge image_transport geometry_msgs tf2 tf2_ros
-  ament_index_cpp)
 
 # The RealSense node needs librealsense2 (ros-humble-librealsense2); without it the rest builds.
 if(realsense2_FOUND)
@@ -65,6 +58,16 @@ endif()
 add_executable(gripper_driver src/gripper_driver.cpp)
 target_include_directories(gripper_driver PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 ament_target_dependencies(gripper_driver rclcpp sensor_msgs std_msgs)
+# The real gripper's motors run on the tool flange's 12 V: gripper_driver switches it on through the RB-Y1
+# driver's tool_flange_power service (rby1_msgs). A workspace without rby1_msgs (rby1_tools copied alone)
+# builds without it, and the flange voltage is then switched on by hand.
+find_package(rby1_msgs QUIET)
+if(rby1_msgs_FOUND)
+  target_compile_definitions(gripper_driver PRIVATE RBY1_TOOLS_WITH_MSGS)
+  ament_target_dependencies(gripper_driver rby1_msgs)
+else()
+  message(WARNING "rby1_msgs not found: gripper_driver does not switch the tool flange's 12 V on by itself")
+endif()
 if(DEFINED ENV{RBY1_SDK_PATH} AND EXISTS "$ENV{RBY1_SDK_PATH}/include/rby1-sdk/base/dynamixel_bus.h")
   set(RBY1_SDK_PATH $ENV{RBY1_SDK_PATH})
   target_compile_definitions(gripper_driver PRIVATE RBY1_TOOLS_WITH_SDK)
@@ -90,7 +93,7 @@ add_executable(lidar_calibrate src/lidar_calibrate.cpp)
 target_link_libraries(lidar_calibrate ${PROJECT_NAME}_core)
 ament_target_dependencies(lidar_calibrate rclcpp sensor_msgs)
 
-install(TARGETS camera_publisher gripper_driver lidar_publisher lidar_merger lidar_calibrate
+install(TARGETS gripper_driver lidar_publisher lidar_merger lidar_calibrate
   DESTINATION lib/${PROJECT_NAME})
 install(DIRECTORY config launch model DESTINATION share/${PROJECT_NAME})
 

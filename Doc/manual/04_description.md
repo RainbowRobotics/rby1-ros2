@@ -8,8 +8,8 @@ packages and the gripper model of `rby1_tools` build on these files; use them fo
 
 | Model | Versions | Base |
 |-------|----------|------|
-| `rby1a` (RB-Y1 A) | `1_0`, `1_1`, `1_2` | differential drive: `base` is 0.228 m behind the wheel axle |
-| `rby1m` (RB-Y1 M) | `1_0`, `1_1`, `1_2`, `1_3` | mecanum: `base` is on the axle |
+| `a` (RB-Y1 A, `urdf/rby1a/`) | `1_0`, `1_1`, `1_2` | differential drive: `base` is 0.228 m behind the wheel axle |
+| `m` (RB-Y1 M, `urdf/rby1m/`) | `1_0`, `1_1`, `1_2`, `1_3` | mecanum: `base` is on the axle |
 
 - **Frames.** The root link is `base`, on the floor (the SDK's wheel radius equals the axle height: M 0.076 m, A
   0.1 m). The arms end at the tool frames `ee_right` / `ee_left`, 0.125 m beyond `link_right_arm_6` / `link_left_arm_6`
@@ -37,12 +37,11 @@ ros2 launch rby1_description rby1_state_publisher.launch.py model:=m version:=1_
 | `version` | `1_0` | `1_0`, `1_1`, `1_2` (`1_3` on M), with an underscore |
 | `use_sim_time` | `false` | |
 
-It starts `robot_state_publisher` with the URDF, `joint_state_publisher_gui` (sliders for every joint) and RViz. In
-RViz add the `TF` and `RobotModel` displays, set the fixed frame to `base` and the RobotModel's topic to
-`/robot_description`:
+It starts `robot_state_publisher` with the URDF, `joint_state_publisher_gui` (sliders for every joint) and RViz with
+the robot model and its frames already set up (`rviz/robot.rviz`: RobotModel from `/robot_description`, TF, Fixed
+Frame `base`). Move the sliders and the model follows.
 
-![rby1_state_publisher_2](../img/state_checker_guide_2.png)
-![rby1_state_publisher_5](../img/state_checker_guide_5.png)
+![RViz as the launch opens it (M v1.2)](../img/description_rviz.png)
 
 With the driver running instead of the slider, the same `robot_state_publisher` takes `/rby1/joint_overall_states`
 (remap `joint_states` to it, or use the relay of `rby1_moveit_executor`) and the model follows the robot.

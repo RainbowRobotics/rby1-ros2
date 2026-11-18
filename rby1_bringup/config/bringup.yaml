@@ -34,9 +34,9 @@ objects:                      # rby1_moveit_objects/launch/objects.launch.py (mo
   config: ""                  # the gripper is gripper.scene below). A YAML of its config/, <package>/<path>, or a path; "": its config/objects.yaml
 
 camera:                       # rby1_tools/launch/camera.launch.py
-  camera: realsense           # realsense, or webcam (a device, an image or a video file)
+  camera: realsense           # the kind of camera (realsense only, for now)
   camera_name: camera         # first part of its topics and frames: /camera/rgb/raw, camera_link
-  config: ""                  # settings YAML (source, streams, compressed, ...); "": its config/camera/<camera>.yaml
+  config: ""                  # settings YAML (serial, streams, compressed, ...); "": its config/camera/<camera>.yaml
   mount: head_default         # a name in its config/camera/camera_mount.yaml; none: on no link
 
 gripper:                      # rby1_tools/launch/gripper.launch.py (the gripper on the hands)

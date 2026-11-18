@@ -12,6 +12,7 @@ gripper_driver:
     speed: 0.05                      # m/s, each finger (virtual only; the URDF's finger velocity)
     # The real gripper (virtual: false): on the PC its USB is plugged into (the UPC), built where the SDK is.
     device: /dev/rby1_gripper        # the SDK's gripper device
+    tool_flange_voltage: 12          # the motors' supply: switched on at start through the RB-Y1 driver's tool_flange_power (both hands); 0: leave it
     right_id: 0                      # Dynamixel id of each hand's motor
     left_id: 1
     homing: true                     # at start, run each motor to both ends to learn its travel (the fingers move!)

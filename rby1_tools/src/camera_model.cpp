@@ -9,55 +9,6 @@
 
 namespace rby1_tools {
 
-namespace {
-
-std::string lower_extension(const std::string & path) {
-  const auto dot = path.find_last_of('.');
-  if (dot == std::string::npos) return "";
-  std::string ext = path.substr(dot + 1);
-  std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) { return std::tolower(c); });
-  return ext;
-}
-
-}  // namespace
-
-Source parse_source(const std::string & source) {
-  if (source.empty()) throw std::invalid_argument("source is empty: give a device (0, /dev/video0) or a file");
-  if (std::all_of(source.begin(), source.end(), [](unsigned char c) { return std::isdigit(c); })) {
-    return {Source::Kind::device, std::stoi(source), "/dev/video" + source};
-  }
-  if (source.rfind("/dev/video", 0) == 0) {
-    const std::string number = source.substr(10);
-    if (number.empty() || !std::all_of(number.begin(), number.end(), [](unsigned char c) { return std::isdigit(c); })) {
-      throw std::invalid_argument("not a video device: " + source);
-    }
-    return {Source::Kind::device, std::stoi(number), source};
-  }
-  const auto ext = lower_extension(source);
-  if (ext == "png" || ext == "jpg" || ext == "jpeg" || ext == "bmp") return {Source::Kind::image, -1, source};
-  return {Source::Kind::video, -1, source};
-}
-
-sensor_msgs::msg::CameraInfo approximate_camera_info(int width, int height, double horizontal_fov_deg,
-                                                     const std::string & frame_id) {
-  if (width <= 0 || height <= 0) throw std::invalid_argument("image size must be positive");
-  if (!(horizontal_fov_deg > 1.0 && horizontal_fov_deg < 179.0)) {
-    throw std::invalid_argument("horizontal_fov must be between 1 and 179 degrees");
-  }
-  const double f = width / 2.0 / std::tan(horizontal_fov_deg * M_PI / 360.0);
-  const double cx = (width - 1) / 2.0, cy = (height - 1) / 2.0;
-  sensor_msgs::msg::CameraInfo info;
-  info.header.frame_id = frame_id;
-  info.width = static_cast<uint32_t>(width);
-  info.height = static_cast<uint32_t>(height);
-  info.distortion_model = "plumb_bob";
-  info.d = {0.0, 0.0, 0.0, 0.0, 0.0};
-  info.k = {f, 0.0, cx, 0.0, f, cy, 0.0, 0.0, 1.0};
-  info.r = {1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0};
-  info.p = {f, 0.0, cx, 0.0, 0.0, f, cy, 0.0, 0.0, 0.0, 1.0, 0.0};
-  return info;
-}
-
 Intrinsics read_intrinsics(const std::string & path) {
   YAML::Node file;
   try {
