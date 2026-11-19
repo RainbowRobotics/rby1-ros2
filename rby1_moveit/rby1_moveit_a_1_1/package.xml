@@ -3,7 +3,7 @@
 <package format="3">
   <name>rby1_moveit_a_1_1</name>
   <depend>rby1_msgs</depend>
-  <version>0.3.0</version>
+  <version>1.0.0</version>
   <description>
      An automatically generated package with all the configuration and launch files for using the RBY1_A_v1_1 with the MoveIt Motion Planning Framework
   </description>

@@ -17,7 +17,7 @@ realsense-ros; only the streams switched on are opened).
 ```bash
 ros2 launch rby1_tools camera.launch.py                          # config/camera/realsense.yaml
 ros2 launch rby1_tools camera.launch.py config:=/path/my.yaml    # other settings: another device (serial), a calibration
-ros2 launch rby1_tools camera.launch.py mount:=head_tilted       # another place on the robot (camera_mount.yaml)
+ros2 launch rby1_tools camera.launch.py mount:=head_tilted       # another place on the robot: add it to camera_mount.yaml first (Tips)
 ros2 launch rby1_tools camera.launch.py camera_name:=desk mount:=none   # a second camera, on no link
 ros2 launch rby1_tools camera.launch.py rviz:=true               # with RViz (config/camera/camera.rviz)
 ```

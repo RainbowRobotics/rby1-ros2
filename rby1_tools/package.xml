@@ -2,7 +2,7 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>rby1_tools</name>
-  <version>0.0.0</version>
+  <version>1.0.0</version>
   <description>Host-side tools around the RB-Y1 driver: camera images as ROS topics (for Isaac ROS AprilTag in the container), and a virtual gripper</description>
   <maintainer email="sangmin.jeon@rainbow-robotics.com">jsm</maintainer>
   <license>TODO: License declaration</license>

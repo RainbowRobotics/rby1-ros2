@@ -47,11 +47,10 @@ Run:
 Parameters (defaults):
   target_topic  /rby1/right_arm/target_pose    where the targets go
   status_topic  /rby1/right_arm/target_status  the listener's answers, logged
-  point_a       [0.463, -0.367, 1.084, -1.571, -1.071, 1.571]  5 cm forward and up of the right
-                                                                hand at the ready pose
-  point_b       [0.413, -0.367, 1.034, -1.571, -1.071, 1.571]  the right hand at the ready pose.
-                Both are near the ready pose so that example 15 (the driver's own IK, no
-                planner) reaches them too; the planner takes farther ones, e.g.
+  point_a       [0.413, -0.367, 1.2, -1.571, -1.071, 1.571]    16.6 cm above point_b
+  point_b       [0.413, -0.367, 1.04, -1.571, -1.071, 1.571]   6 mm above the right hand at the
+                                                                ready pose (0.413, -0.367, 1.034).
+                The planner takes farther ones, e.g.
                 point_a:=[0.413,-0.2,0.918,...] point_b:=[0.413,-0.2,1.418,...] (50 cm apart)
   period        5.0 s                          from one target to the next: longer than a move takes
 A point is always 6 values. Write every value as a float (1.0, not 1).

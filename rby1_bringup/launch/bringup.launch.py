@@ -21,12 +21,12 @@ CONFIG = os.path.join(get_package_share_directory('rby1_bringup'), 'config', 'br
 # What starts
 DRIVER = True             # the RB-Y1 driver (rby1_driver)
 MOVEIT_EXECUTOR = False   # the MoveIt planner that moves the arms through the driver; it takes the robot to the ready pose
-MOVEIT_DEMO = True        # MoveIt with ros2_control instead of the planner (not both: one move_group per domain)
+MOVEIT_DEMO = False       # MoveIt with ros2_control instead of the planner (not both: one move_group per domain)
 ROS2_CONTROL = False      # ros2_control with the hardware plugin, no MoveIt (not with MOVEIT_DEMO: one controller manager)
 SCENE = False             # obstacles loaded into the planning scene (needs the planner or the demo)
 OBJECTS = False           # modules on the robot or fixtures in the planning scene (needs the planner or the demo)
 CAMERA = False            # the camera publisher (rby1_tools)
-GRIPPER = True            # the gripper on the hands: model on TF, parts in the scene, its driver, virtual or real (rby1_tools)
+GRIPPER = False           # the gripper on the hands: model on TF, parts in the scene, its driver, virtual or real (rby1_tools)
 
 # A launch evaluates every included launch file before it starts any process. The planner's
 # launch looks the driver up while it is evaluated, so it is evaluated only after the driver has

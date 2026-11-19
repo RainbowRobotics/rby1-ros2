@@ -240,7 +240,7 @@ ros2 launch rby1_bringup bringup.launch.py
 | `DRIVER` (on) | the RB-Y1 driver | `driver`: `params_file`, `namespace`, `robot_ip`, `model` |
 | `MOVEIT_EXECUTOR` | the MoveIt planner that moves the arms through the driver | `moveit_executor`: `rviz`, `target_namespace`, `velocity_scaling`, `minimum_time`, `impedance`, `ready_pose`, `version` |
 | `MOVEIT_DEMO` | MoveIt with `ros2_control` (not together with the planner) | `moveit_demo`: `package`, `use_fake_hardware` |
-| `ROS2_CONTROL` | `ros2_control` with the hardware plugin, without MoveIt (not together with `MOVEIT_DEMO`) | `ros2_control`: `use_fake_hardware` (which robot: the top of `rby1_hardware`'s launch file) |
+| `ROS2_CONTROL` | `ros2_control` with the hardware plugin, without MoveIt (not together with `MOVEIT_DEMO`) | `ros2_control`: `use_fake_hardware` (which robot: `driver.model` and `moveit_executor.version`, both required) |
 | `SCENE` | obstacles loaded into the planning scene | `scene`: `config` |
 | `OBJECTS` | modules on the robot or fixtures in the planning scene (the gripper is `GRIPPER`'s `scene`) | `objects`: `config` |
 | `CAMERA` | the camera publisher | `camera`: `camera`, `camera_name`, `config`, `mount` |

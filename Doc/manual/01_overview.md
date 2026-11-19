@@ -58,7 +58,7 @@ In a plain environment, not a conda or miniforge one (their Python and CMake get
 2. **The RB-Y1 SDK**, built from source as its README says: <https://github.com/RainbowRobotics/rby1-sdk>.
    `rby1_driver`, `rby1_hardware` and `rby1_tools`' gripper driver find it through `RBY1_SDK_PATH`, the SDK's source
    tree with its build in `build/` (headers `include/rby1-sdk`, library `build/src`). The driver and the hardware
-   plugin refuse to configure without it, with a message; the gripper driver is left out of the build.
+   plugin refuse to configure without it, with a message; the gripper driver is built for `virtual: true` only.
 3. **The simulator** (optional): <https://hub.docker.com/r/rainbowroboticsofficial/rby1-sim>. Its address is
    `127.0.0.1:50051`; the tag picks model and version (`0.10.6-a_v1.2`, `0.10.6-m_v1.3`). Model A goes up to v1.2,
    model M to v1.3.
@@ -119,7 +119,7 @@ ros2 launch rby1_bringup bringup.launch.py
 | `DRIVER` (on) | the driver | `driver`: `params_file`, `namespace`, `robot_ip`, `model` | [Driver](02_driver.md) |
 | `MOVEIT_EXECUTOR` | the MoveIt planner that moves the arms through the driver | `moveit_executor`: `rviz`, `velocity_scaling`, `minimum_time`, `impedance`, `ready_pose`, `version` | [Executor](06_moveit.md#executor-rby1_moveit_executor) |
 | `MOVEIT_DEMO` | MoveIt with `ros2_control` (not together with the planner: one `move_group` per domain) | `moveit_demo`: `package`, `use_fake_hardware` | [demo.launch.py](06_moveit.md#demolaunchpy) |
-| `ROS2_CONTROL` | `ros2_control` with the hardware plugin, without MoveIt (not together with `MOVEIT_DEMO`) | `ros2_control`: `use_fake_hardware` (which robot: the top of `rby1_hardware`'s launch file) | [Hardware Interface](05_hardware_interface.md#using-it-without-moveit) |
+| `ROS2_CONTROL` | `ros2_control` with the hardware plugin, without MoveIt (not together with `MOVEIT_DEMO`) | `ros2_control`: `use_fake_hardware` (which robot: `driver.model` and `moveit_executor.version`, both required) | [Hardware Interface](05_hardware_interface.md#using-it-without-moveit) |
 | `SCENE` | obstacles loaded into the planning scene | `scene`: `config` | [Scene](06_moveit.md#scene) |
 | `OBJECTS` | modules on the robot or fixtures in the planning scene | `objects`: `config` | [Objects](06_moveit.md#objects-rby1_moveit_objects) |
 | `CAMERA` | the camera publisher | `camera`: `camera`, `camera_name`, `config`, `mount` | [Camera](07_tools.md#camera) |

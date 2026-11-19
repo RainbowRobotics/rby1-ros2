@@ -2,7 +2,7 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>rby1_navigation</name>
-  <version>0.1.0</version>
+  <version>1.0.0</version>
   <description>Navigation, SLAM, LiDAR fusion, and driver stream integration package for Rainbow Robotics RBY1</description>
   <maintainer email="rainbow@rainbow-robotics.com">Rainbow Robotics</maintainer>
   <license>Apache-2.0</license>

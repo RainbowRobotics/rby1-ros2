@@ -2,7 +2,7 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>rby1_moveit_executor</name>
-  <version>0.0.0</version>
+  <version>1.0.0</version>
   <description>Move an RB-Y1 arm to 4x4 tool targets: MoveIt (OMPL) plans, the RB-Y1 driver executes</description>
   <maintainer email="sangmin.jeon@rainbow-robotics.com">jsm</maintainer>
   <license>TODO: License declaration</license>

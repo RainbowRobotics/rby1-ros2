@@ -133,7 +133,7 @@ the arm is whatever listens: example 15, the planner, or the cuMotion executor o
 | Parameter | Default | Meaning |
 |-----------|---------|---------|
 | `target_topic`, `status_topic` | `/rby1/right_arm/target_pose`, `/rby1/right_arm/target_status` | `/rby1/left_arm/…` for the left arm, with points on the left side |
-| `point_a`, `point_b` | `[0.463, -0.367, 1.084, -1.571, -1.071, 1.571]`, `[0.413, -0.367, 1.034, -1.571, -1.071, 1.571]` | x, y, z (m, `base`), roll, pitch, yaw (rad; Rz(yaw) Ry(pitch) Rx(roll)) of the tool frame. Six values, each a float (`1.0`, not `1`). The defaults are 5 cm forward and up of the right hand at the ready pose (which is at (0.413, −0.367, 1.034)) and back: within reach of example 15's IK and of the planner alike |
+| `point_a`, `point_b` | `[0.413, -0.367, 1.2, -1.571, -1.071, 1.571]`, `[0.413, -0.367, 1.04, -1.571, -1.071, 1.571]` | x, y, z (m, `base`), roll, pitch, yaw (rad; Rz(yaw) Ry(pitch) Rx(roll)) of the tool frame. Six values, each a float (`1.0`, not `1`). The defaults: `point_b` is 6 mm above the right hand at the ready pose (which is at (0.413, −0.367, 1.034)), `point_a` 16.6 cm above `point_b` |
 | `period` | `5.0` | Seconds from one target to the next; longer than a move takes (`8.0` around an obstacle) |
 
 Other targets, in terminal 3 in place of the default command:

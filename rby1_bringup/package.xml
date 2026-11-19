@@ -2,7 +2,7 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>rby1_bringup</name>
-  <version>0.0.0</version>
+  <version>1.0.0</version>
   <description>One launch that starts the RB-Y1 driver with what you choose next to it: the MoveIt planner or MoveIt with ros2_control, the planning scene, the camera, the virtual gripper</description>
   <maintainer email="rby.support@rainbow-robotics.com">Rainbow Robotics</maintainer>
   <license>TODO: License declaration</license>

@@ -2,7 +2,7 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>rby1_moveit_objects</name>
-  <version>0.0.0</version>
+  <version>1.0.0</version>
   <description>MoveIt planning-scene objects for any RB-Y1 model: add, move, remove and load obstacles (scene), put modules (grippers, sensors, tools) on robot links or fixtures in the world from a YAML file with mesh files or primitive shapes (publish_objects), and put one obstacle where a point topic says (object_at_point)</description>
   <maintainer email="sangmin.jeon@rainbow-robotics.com">jsm</maintainer>
   <license>TODO: License declaration</license>

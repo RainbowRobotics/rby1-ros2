@@ -6,7 +6,7 @@
 #   ros2 launch rby1_bringup bringup.launch.py
 
 driver:                       # rby1_driver/launch/rby1_ros2_driver.launch.py
-  params_file: "rby1_driver/config/driver_parameters.yaml"             # driver parameters YAML; "": rby1_driver/config/driver_parameters.yaml
+  params_file: ""             # driver parameters YAML; "": rby1_driver/config/driver_parameters.yaml
   namespace: rby1             # namespace of the driver and of everything that talks to it
   robot_ip: ""                # robot address and gRPC port; "": the params file's
   model: ""                   # a or m; "": the params file's
