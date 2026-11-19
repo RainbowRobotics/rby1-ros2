@@ -73,6 +73,9 @@ def check(config):
             raise RuntimeError(f"moveit_demo.package '{package}' is for model {kind}, "
                                f"but driver.model is {driver['model']}")
     version = str(config['moveit_executor']['version'])
+    if ROS2_CONTROL and not (driver['model'] and version):
+        raise RuntimeError('ROS2_CONTROL needs the robot named: driver.model (a or m) and moveit_executor.version '
+                           '(such as 1.2) in ' + CONFIG)
     has_gripper_in_model = version.startswith('1.3')   # RB-Y1 v1.3 carries its gripper in its URDF
     if has_gripper_in_model and OBJECTS and 'gripper' in str(config['objects']['config']):
         raise RuntimeError('RB-Y1 v1.3 has the gripper in its robot model: objects.config must not be '
@@ -126,6 +129,7 @@ def generate_launch_description():
             launch_file('rby1_moveit_executor', 'moveit_executor.launch.py'),
             launch_arguments={
                 'driver_namespace': driver['namespace'],
+                'target_namespace': executor['target_namespace'],
                 'model': driver['model'],               # '': read from the driver
                 'version': executor['version'],         # '': read from the driver
                 'rviz': str(executor['rviz']),
@@ -152,7 +156,7 @@ def generate_launch_description():
             parts.append(moveit)   # the driver is already running elsewhere
 
     # ---- ros2_control without MoveIt --------------------------------------------------------
-    # Which robot (URDF, controllers) is set at the top of rby1_hardware/launch/rby1_hardware.launch.py.
+    # Which controllers start is set at the top of rby1_hardware/launch/rby1_hardware.launch.py.
     if ROS2_CONTROL:
         ros2_control = IncludeLaunchDescription(
             launch_file('rby1_hardware', 'rby1_hardware.launch.py'),
@@ -160,6 +164,8 @@ def generate_launch_description():
                 'use_fake_hardware': str(config['ros2_control']['use_fake_hardware']),
                 'robot_ip': driver['robot_ip'] or '127.0.0.1:50051',
                 'driver_namespace': driver['namespace'],
+                'model': driver['model'],
+                'version': str(config['moveit_executor']['version']),
             }.items())
         if DRIVER:
             # the hardware plugin asks the driver for the control right when it activates

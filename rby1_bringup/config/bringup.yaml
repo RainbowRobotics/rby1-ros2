@@ -1,9 +1,9 @@
 # rby1_bringup/launch/bringup.launch.py: what each part starts with. One section per launch file
 # it includes, with that launch file's arguments; an empty value ("") means that launch file's
-# default. Which sections start is chosen on the command line (driver:=true, camera:=true, ...).
+# default. Which sections start is set by the True/False flags at the top of that launch file
+# (DRIVER, MOVEIT_EXECUTOR, ..., GRIPPER), not on the command line; edit them, then
 #
-#   ros2 launch rby1_bringup bringup.launch.py moveit_executor:=true gripper:=true
-#   ros2 launch rby1_bringup bringup.launch.py config:=/path/to/my_bringup.yaml camera:=true
+#   ros2 launch rby1_bringup bringup.launch.py
 
 driver:                       # rby1_driver/launch/rby1_ros2_driver.launch.py
   params_file: "rby1_driver/config/driver_parameters.yaml"             # driver parameters YAML; "": rby1_driver/config/driver_parameters.yaml
@@ -13,6 +13,7 @@ driver:                       # rby1_driver/launch/rby1_ros2_driver.launch.py
 
 moveit_executor:              # rby1_moveit_executor/launch/moveit_executor.launch.py (the MoveIt planner;
   rviz: true                  # takes the robot to the ready pose). Not together with moveit_demo.
+  target_namespace: rby1      # its targets on /<target_namespace>/<arm>/target_pose, answers on .../target_status
   velocity_scaling: 0.5       # MoveIt velocity scaling (0..1]
   minimum_time: 2.0           # a move takes at least this many seconds
   impedance: false            # follow trajectories in joint impedance (compliant arm)
@@ -24,8 +25,8 @@ moveit_demo:                  # rby1_moveit_<model>_<version>/launch/demo.launch
   package: rby1_moveit_m_1_2  # rby1_moveit_{a,m}_{1_0,1_1,1_2,1_3}
   use_fake_hardware: false
 
-ros2_control:                 # rby1_hardware/launch/rby1_hardware.launch.py (ros2_control without MoveIt). Which robot
-  use_fake_hardware: false    # (URDF, controllers) is set at the top of that launch file. Not together with moveit_demo.
+ros2_control:                 # rby1_hardware/launch/rby1_hardware.launch.py (ros2_control without MoveIt). The robot is
+  use_fake_hardware: false    # driver.model and moveit_executor.version, both required here. Not together with moveit_demo.
 
 scene:                        # rby1_moveit_objects/launch/scene.launch.py (obstacles into the planning scene)
   config: ""                  # obstacles YAML; "": its config/example_scene.yaml

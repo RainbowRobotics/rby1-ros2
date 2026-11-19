@@ -398,6 +398,9 @@ private:
   bool has_pending_command_{false};
 
   void io_worker_loop();
+  void release_hardware_control();
+  // on_activate after the control right was claimed: give it back, so the driver takes commands again.
+  hardware_interface::CallbackReturn fail_activation();
   void joint_state_callback(const sensor_msgs::msg::JointState::SharedPtr msg);
   void cmd_vel_callback(const geometry_msgs::msg::Twist::SharedPtr msg);
 };

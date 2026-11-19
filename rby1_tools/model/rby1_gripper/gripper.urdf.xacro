@@ -3,7 +3,7 @@
      robot_state_publisher per hand loads it and publishes the gripper's frames under the
      robot's tool frame (ee_right / ee_left), which the RB-Y1 URDF up to v1.2 ends at. The
      root link here IS that tool frame (its own transform comes from the robot's TF), the
-     mount joint carries the offset of config/gripper_mount.yaml, and the finger joints take
+     mount joint carries the offset of config/gripper/gripper_mount.yaml, and the finger joints take
      their states from the virtual gripper or the gripper driver (joint_states_topic).
      The same body and fingers as gripper.yaml puts in the planning scene; the masses are
      the RB-Y1 v1.3 URDF's. An RB-Y1 v1.3 carries the gripper in its URDF: not for it. -->

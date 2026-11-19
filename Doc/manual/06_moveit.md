@@ -113,6 +113,7 @@ ros2 launch rby1_moveit_executor moveit_executor.launch.py              # with R
 | `ready_pose` | `config/ready_pose.yaml` | The ready pose file |
 | `model`, `version` | from the driver | Robot kind and version |
 | `driver_namespace` | `rby1` | Namespace of the driver |
+| `target_namespace` | `rby1` | Namespace of the target topics: `/<target_namespace>/<arm>/target_pose`, `target_status` |
 
 Other node parameters (`ros2 param set /rby1_target_executor …`): `pipeline` (`ompl`), `planner_id`,
 `planning_attempts` (5), `planning_time` (5.0 s), `position_tolerance` (0.001 m) and `orientation_tolerance`

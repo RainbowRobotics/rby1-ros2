@@ -62,18 +62,18 @@ CMake stops with a message otherwise.
 # terminal 1
 ros2 launch rby1_driver rby1_ros2_driver.launch.py
 # terminal 2
-ros2 launch rby1_hardware rby1_hardware.launch.py
-ros2 launch rby1_hardware rby1_hardware.launch.py robot_ip:=192.168.30.1:50051     # a robot
-ros2 launch rby1_hardware rby1_hardware.launch.py use_fake_hardware:=true          # no robot, no driver (mock hardware)
+ros2 launch rby1_hardware rby1_hardware.launch.py model:=m version:=1.2
+ros2 launch rby1_hardware rby1_hardware.launch.py model:=m version:=1.2 robot_ip:=192.168.30.1:50051   # a robot
+ros2 launch rby1_hardware rby1_hardware.launch.py model:=m version:=1.2 use_fake_hardware:=true        # no robot, no driver (mock hardware)
 ```
 
-**Which robot** it is for is set at the top of the launch file, not on the command line — three lines to edit for
-your RB-Y1:
+**Which robot** it is for is named on the command line, `model:=m version:=1.2` (both required): they pick
+`rby1_moveit_<model>_<version>`, whose URDF (with the `<ros2_control>` block) and `config/ros2_controllers.yaml` are
+used — only its files. The plugin compares them with the connected robot when it activates and refuses if they differ
+(it then returns the control right to the driver). Which controllers start is set at the top of the launch file:
 
 | Line | Meaning |
 |---|---|
-| `MOVEIT_CONFIG_PACKAGE` | `rby1_moveit_{a,m}_{1_0,1_1,1_2,1_3}`: the package whose URDF (with the `<ros2_control>` block) and `config/ros2_controllers.yaml` are used. Only its files are read |
-| `ROBOT_DESCRIPTION` | its `config/*.urdf.xacro`, e.g. `RBY1_M_v1_2.urdf.xacro` |
 | `CONTROLLERS` | the controllers started active (default: `right_arm_controller`, `left_arm_controller`, `torso_controller`, `head_controller`) |
 
 | Argument | Default | Meaning |
@@ -81,6 +81,7 @@ your RB-Y1:
 | `robot_ip` | `127.0.0.1:50051` | Robot address and gRPC port |
 | `driver_namespace` | `rby1` | Namespace of the running driver |
 | `use_fake_hardware` | `false` | `true`: `mock_components/GenericSystem` instead of the robot |
+| `model`, `version` | required | Robot kind (`a`, `m`) and version (`1.2`) |
 
 From then on it is plain `ros2_control`: joint states on `/joint_states`, a trajectory to
 `/<controller>/follow_joint_trajectory` (`control_msgs/action/FollowJointTrajectory`) or

@@ -95,6 +95,7 @@ MoveItExecutor::MoveItExecutor()
   // Name and topics shared with the cuMotion executor: whichever planner runs, targets
   // and `ros2 param set /rby1_target_executor ...` go to the same place.
   declare_parameter("driver_namespace", "rby1");
+  declare_parameter("target_namespace", "rby1");   // <target_namespace>/<arm>/target_pose, target_status
   declare_parameter("frame", "base");
   declare_parameter("robot_description", "");
   declare_parameter("enable_robot", true);
@@ -140,9 +141,9 @@ MoveItExecutor::MoveItExecutor()
     arm.name = name;
     arm.tool = kTool.at(name);
     for (size_t i = 0; i < kPartJoints.at(name); ++i) arm.joints.push_back(name + "_" + std::to_string(i));
-    arm.status = create_publisher<std_msgs::msg::String>("/rby1/" + name + "/target_status", 10);
+    arm.status = create_publisher<std_msgs::msg::String>(target(name + "/target_status"), 10);
     arm.targets = create_subscription<std_msgs::msg::Float64MultiArray>(
-      "/rby1/" + name + "/target_pose", 10, [this, name](const std_msgs::msg::Float64MultiArray & msg) {
+      target(name + "/target_pose"), 10, [this, name](const std_msgs::msg::Float64MultiArray & msg) {
         on_target(name, msg);
       });
     arms_.push_back(arm);
@@ -171,7 +172,15 @@ MoveItExecutor::MoveItExecutor()
 }
 
 std::string MoveItExecutor::driver(const std::string & relative) const {
-  std::string ns = get_parameter("driver_namespace").as_string();
+  return under("driver_namespace", relative);
+}
+
+std::string MoveItExecutor::target(const std::string & relative) const {
+  return under("target_namespace", relative);
+}
+
+std::string MoveItExecutor::under(const std::string & parameter, const std::string & relative) const {
+  std::string ns = get_parameter(parameter).as_string();
   while (!ns.empty() && ns.front() == '/') ns.erase(ns.begin());
   while (!ns.empty() && ns.back() == '/') ns.pop_back();
   return (ns.empty() ? "" : "/" + ns) + "/" + relative;
@@ -337,7 +346,7 @@ void MoveItExecutor::start() {
     std::lock_guard<std::mutex> lock(mutex_);
     state = *robot_state_;
   }
-  if (const auto problem = robot_problem(state)) throw std::runtime_error(*problem);
+  if (const auto problem = robot_problem(state, driver("control_manager_command"))) throw std::runtime_error(*problem);
   if (param<bool>("enable_robot")) {
     switch_driver("robot_power", true);
     switch_driver("robot_servo", true);
@@ -592,7 +601,7 @@ void MoveItExecutor::process(const Targets & targets) {
     {
       std::lock_guard<std::mutex> lock(mutex_);
       if (robot_state_) {
-        if (const auto problem = robot_problem(*robot_state_)) throw std::runtime_error(*problem);
+        if (const auto problem = robot_problem(*robot_state_, driver("control_manager_command"))) throw std::runtime_error(*problem);
       }
     }
     const auto planned = plan(targets);

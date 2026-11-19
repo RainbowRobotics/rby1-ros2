@@ -178,10 +178,12 @@ TEST(Robot, TheSolutionTheArmTurnsLeastForIsTaken) {
 
 TEST(Robot, EmergencyStopAndMajorFaultStopIt) {
   rby1_msgs::msg::RobotState state;
-  EXPECT_FALSE(robot_problem(state).has_value());
+  const std::string reset = "/robotA/control_manager_command";
+  EXPECT_FALSE(robot_problem(state, reset).has_value());
   state.emo_state = true;
-  EXPECT_NE(robot_problem(state)->find("Emergency stop"), std::string::npos);
+  EXPECT_NE(robot_problem(state, reset)->find("Emergency stop"), std::string::npos);
   state.emo_state = false;
   state.control_manager_state = rby1_msgs::msg::RobotState::STATE_MAJOR_FAULT;
-  EXPECT_NE(robot_problem(state)->find("command: 3"), std::string::npos);
+  EXPECT_NE(robot_problem(state, reset)->find("command: 3"), std::string::npos);
+  EXPECT_NE(robot_problem(state, reset)->find(reset), std::string::npos);
 }

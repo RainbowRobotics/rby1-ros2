@@ -10,7 +10,7 @@ driver's joint states through a relay; the executor sends each planned path to
 the driver's follow_joint_trajectory.
 
 Targets: 4x4 tool poses on /rby1/right_arm/target_pose and /rby1/left_arm/target_pose,
-results on /rby1/<arm>/target_status -- the same as the cuMotion launch (rby1_examples:
+results on /rby1/<arm>/target_status (/rby1: target_namespace:=) -- the same as the cuMotion launch (rby1_examples:
 16_target_shuttle_publisher). Both arms are served. Obstacles: rby1_moveit_objects. Settings while running:
 ros2 param set /rby1_target_executor duration 3.0
 
@@ -33,6 +33,7 @@ from launch_ros.actions import Node
 
 ARGUMENTS = {
     'driver_namespace': ('rby1', 'Namespace of the RB-Y1 driver'),
+    'target_namespace': ('rby1', 'Namespace of the target topics: <it>/<arm>/target_pose, target_status'),
     'model': ('', 'Robot kind (m or a); empty reads it from the driver'),
     'version': ('', 'Robot version such as 1.2; empty reads it from the driver'),
     'rviz': ('true', 'Start RViz'),
@@ -183,6 +184,7 @@ def setup(context):
         Node(package='rby1_moveit_executor', executable='moveit_executor', output='screen',
              parameters=[ready_pose,
                          {'driver_namespace': value['driver_namespace'],
+                          'target_namespace': value['target_namespace'],
                           'robot_description': config.robot_description['robot_description'],
                           'velocity_scaling': float(value['velocity_scaling']),
                           'minimum_time': float(value['minimum_time']),

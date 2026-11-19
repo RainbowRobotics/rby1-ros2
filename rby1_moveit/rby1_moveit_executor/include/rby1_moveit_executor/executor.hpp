@@ -8,6 +8,7 @@
 //                              arm's tool frame (ee_right / ee_left) in `frame` (base)
 //   /rby1/<arm>/target_status  std_msgs/String  READY, PLANNING, EXECUTING ..., DONE, FAILED: <reason>
 // with <arm> right_arm or left_arm: each arm has its own topics, and both are served.
+// /rby1 is `target_namespace`; the driver's topics are under `driver_namespace`.
 //
 // Targets for both arms that are waiting when a move is planned go in one move, planned
 // for both arms as one (the SRDF group both_arms). One arm's target is planned for that
@@ -111,6 +112,8 @@ private:
   template<typename T>
   T param(const std::string & name) { return get_parameter(name).get_value<T>(); }
   std::string driver(const std::string & relative) const;
+  std::string target(const std::string & relative) const;
+  std::string under(const std::string & parameter, const std::string & relative) const;
 
   void on_joints(const sensor_msgs::msg::JointState & msg);
   void on_target(const std::string & arm, const std_msgs::msg::Float64MultiArray & msg);

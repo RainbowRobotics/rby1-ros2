@@ -5,8 +5,6 @@
 #include <algorithm>
 #include <chrono>
 #include <thread>
-#include <pthread.h>
-#include <sched.h>
 
 namespace rby1_hardware {
 
@@ -290,20 +288,19 @@ hardware_interface::CallbackReturn RBY1SystemHardware::on_activate(
     RCLCPP_FATAL(rclcpp::get_logger("RBY1SystemHardware"),
                  "\033[1;31m====================================================================\033[0m");
     RCLCPP_FATAL(rclcpp::get_logger("RBY1SystemHardware"),
-                 "\033[1;31m[MODEL/VERSION MISMATCH] MoveIt configuration does not match connected robot!\033[0m");
+                 "\033[1;31m[MODEL/VERSION MISMATCH] The robot description (URDF) does not match the connected robot!\033[0m");
     RCLCPP_FATAL(rclcpp::get_logger("RBY1SystemHardware"),
-                 "\033[1;31m  - MoveIt Expects: Model %s, Version %s (from node name: %s)\033[0m",
+                 "\033[1;31m  - URDF: Model %s, Version %s (from ros2_control name: %s)\033[0m",
                  model_type_.c_str(), exp_ver.c_str(), name.c_str());
     RCLCPP_FATAL(rclcpp::get_logger("RBY1SystemHardware"),
                  "\033[1;31m  - Connected Robot: Model %s, Version %s\033[0m",
                  robot_info.robot_model_name.c_str(), robot_info.robot_model_version.c_str());
     RCLCPP_FATAL(rclcpp::get_logger("RBY1SystemHardware"),
-                 "\033[1;31mPlease check that you launched the correct moveit demo.launch.py package.\033[0m");
+                 "\033[1;31mLaunch with the connected robot's: rby1_hardware.launch.py model:=<a|m> version:=<1.x>, or rby1_moveit_<model>_<version> demo.launch.py\033[0m");
     RCLCPP_FATAL(rclcpp::get_logger("RBY1SystemHardware"),
                  "\033[1;31m====================================================================\033[0m");
                  
-    robot_->disconnect();
-    return hardware_interface::CallbackReturn::ERROR;
+    return fail_activation();
   }
 
   // Map URDF joint names to SDK index positions
@@ -323,8 +320,7 @@ hardware_interface::CallbackReturn RBY1SystemHardware::on_activate(
           rclcpp::get_logger("RBY1SystemHardware"),
           "Joint '%s' declared in URDF was not found in robot SDK joint list.",
           joint_name.c_str());
-      robot_->disconnect();
-      return hardware_interface::CallbackReturn::ERROR;
+      return fail_activation();
     }
 
     joint_name_to_sdk_index_[i] =
@@ -368,8 +364,7 @@ hardware_interface::CallbackReturn RBY1SystemHardware::on_activate(
   if (!power_control_client_->wait_for_service(std::chrono::seconds(5))) {
     RCLCPP_FATAL(rclcpp::get_logger("RBY1SystemHardware"),
                  "Service /robot_power not available.");
-    robot_->disconnect();
-    return hardware_interface::CallbackReturn::ERROR;
+    return fail_activation();
   }
   auto power_req = std::make_shared<rby1_msgs::srv::StateOnOff::Request>();
   power_req->state = true;
@@ -381,15 +376,13 @@ hardware_interface::CallbackReturn RBY1SystemHardware::on_activate(
       rclcpp::FutureReturnCode::SUCCESS) {
     RCLCPP_FATAL(rclcpp::get_logger("RBY1SystemHardware"),
                  "Timeout waiting for /robot_power service.");
-    robot_->disconnect();
-    return hardware_interface::CallbackReturn::ERROR;
+    return fail_activation();
   }
   if (!power_future.get()->success) {
     RCLCPP_FATAL(rclcpp::get_logger("RBY1SystemHardware"),
                  "Failed to power ON via driver: %s",
                  power_future.get()->message.c_str());
-    robot_->disconnect();
-    return hardware_interface::CallbackReturn::ERROR;
+    return fail_activation();
   }
 
   // 2. Wait for robot_servo service and call it
@@ -398,8 +391,7 @@ hardware_interface::CallbackReturn RBY1SystemHardware::on_activate(
   if (!servo_control_client_->wait_for_service(std::chrono::seconds(5))) {
     RCLCPP_FATAL(rclcpp::get_logger("RBY1SystemHardware"),
                  "Service /robot_servo not available.");
-    robot_->disconnect();
-    return hardware_interface::CallbackReturn::ERROR;
+    return fail_activation();
   }
   auto servo_req = std::make_shared<rby1_msgs::srv::StateOnOff::Request>();
   servo_req->state = true;
@@ -411,15 +403,13 @@ hardware_interface::CallbackReturn RBY1SystemHardware::on_activate(
       rclcpp::FutureReturnCode::SUCCESS) {
     RCLCPP_FATAL(rclcpp::get_logger("RBY1SystemHardware"),
                  "Timeout waiting for /robot_servo service.");
-    robot_->disconnect();
-    return hardware_interface::CallbackReturn::ERROR;
+    return fail_activation();
   }
   if (!servo_future.get()->success) {
     RCLCPP_FATAL(rclcpp::get_logger("RBY1SystemHardware"),
                  "Failed to enable Servo ON via driver: %s",
                  servo_future.get()->message.c_str());
-    robot_->disconnect();
-    return hardware_interface::CallbackReturn::ERROR;
+    return fail_activation();
   }
   std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
@@ -427,23 +417,20 @@ hardware_interface::CallbackReturn RBY1SystemHardware::on_activate(
   if (!robot_->enable_control_manager()) {
     RCLCPP_FATAL(rclcpp::get_logger("RBY1SystemHardware"),
                  "Failed to enable SDK Control Manager.");
-    robot_->disconnect();
-    return hardware_interface::CallbackReturn::ERROR;
+    return fail_activation();
   }
 
   if (!robot_->wait_for_control_ready(2000)) {
     RCLCPP_FATAL(rclcpp::get_logger("RBY1SystemHardware"),
                  "Control Manager failed to become ready in time.");
-    robot_->disconnect();
-    return hardware_interface::CallbackReturn::ERROR;
+    return fail_activation();
   }
 
   // Initialize command stream
   if (!robot_->init_stream()) {
     RCLCPP_FATAL(rclcpp::get_logger("RBY1SystemHardware"),
                  "Failed to initialize gRPC Command Stream.");
-    robot_->disconnect();
-    return hardware_interface::CallbackReturn::ERROR;
+    return fail_activation();
   }
 
   // Start asynchronous IO worker thread
@@ -501,16 +488,28 @@ hardware_interface::CallbackReturn RBY1SystemHardware::on_deactivate(
     robot_.reset();
   }
 
+  release_hardware_control();
+
+  RCLCPP_INFO(rclcpp::get_logger("RBY1SystemHardware"),
+              "RBY1 Hardware Interface deactivated successfully.");
+  return hardware_interface::CallbackReturn::SUCCESS;
+}
+
+void RBY1SystemHardware::release_hardware_control() {
   if (hardware_control_client_->service_is_ready()) {
     auto request = std::make_shared<rby1_msgs::srv::StateOnOff::Request>();
     request->state = false;
     auto future = hardware_control_client_->async_send_request(request);
     rclcpp::spin_until_future_complete(node_, future, std::chrono::seconds(2));
   }
+}
 
-  RCLCPP_INFO(rclcpp::get_logger("RBY1SystemHardware"),
-              "RBY1 Hardware Interface deactivated successfully.");
-  return hardware_interface::CallbackReturn::SUCCESS;
+hardware_interface::CallbackReturn RBY1SystemHardware::fail_activation() {
+  robot_->disconnect();
+  release_hardware_control();
+  RCLCPP_WARN(rclcpp::get_logger("RBY1SystemHardware"),
+              "Activation failed: hardware control returned to the driver.");
+  return hardware_interface::CallbackReturn::ERROR;
 }
 
 hardware_interface::return_type

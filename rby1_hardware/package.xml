@@ -25,6 +25,14 @@
   <exec_depend>controller_manager</exec_depend>
   <exec_depend>joint_state_broadcaster</exec_depend>
   <exec_depend>joint_trajectory_controller</exec_depend>
+  <!-- the URDF and controllers of the robot named by model:= version:= -->
+  <exec_depend>rby1_moveit_a_1_0</exec_depend>
+  <exec_depend>rby1_moveit_a_1_1</exec_depend>
+  <exec_depend>rby1_moveit_a_1_2</exec_depend>
+  <exec_depend>rby1_moveit_m_1_0</exec_depend>
+  <exec_depend>rby1_moveit_m_1_1</exec_depend>
+  <exec_depend>rby1_moveit_m_1_2</exec_depend>
+  <exec_depend>rby1_moveit_m_1_3</exec_depend>
 
   <export>
     <build_type>ament_cmake</build_type>

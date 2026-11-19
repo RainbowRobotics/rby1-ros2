@@ -238,7 +238,7 @@ ros2 launch rby1_bringup bringup.launch.py
 | Flag | Starts | Its section in `bringup.yaml` |
 |---|---|---|
 | `DRIVER` (on) | the RB-Y1 driver | `driver`: `params_file`, `namespace`, `robot_ip`, `model` |
-| `MOVEIT_EXECUTOR` | the MoveIt planner that moves the arms through the driver | `moveit_executor`: `rviz`, `velocity_scaling`, `minimum_time`, `impedance`, `ready_pose`, `version` |
+| `MOVEIT_EXECUTOR` | the MoveIt planner that moves the arms through the driver | `moveit_executor`: `rviz`, `target_namespace`, `velocity_scaling`, `minimum_time`, `impedance`, `ready_pose`, `version` |
 | `MOVEIT_DEMO` | MoveIt with `ros2_control` (not together with the planner) | `moveit_demo`: `package`, `use_fake_hardware` |
 | `ROS2_CONTROL` | `ros2_control` with the hardware plugin, without MoveIt (not together with `MOVEIT_DEMO`) | `ros2_control`: `use_fake_hardware` (which robot: the top of `rby1_hardware`'s launch file) |
 | `SCENE` | obstacles loaded into the planning scene | `scene`: `config` |
@@ -350,13 +350,13 @@ right from it (`/rby1/hardware_control`) and streams the joint positions to the 
 control right the driver refuses its own command sources (actions, stream, the examples); Ctrl+C on the launch
 returns it.
 
-**Which robot** it is for is set at the top of `rby1_hardware/launch/rby1_hardware.launch.py`, not on the command
-line. Edit these three lines for your RB-Y1:
+**Which robot** it is for is named on the command line, `model:=m version:=1.2` (both required): they pick
+`rby1_moveit_<model>_<version>`, whose URDF (with the `<ros2_control>` tag) and `config/ros2_controllers.yaml` are
+used — only its files; nothing of MoveIt runs. The plugin compares them with the connected robot and refuses to
+activate if they differ. Which controllers start is set at the top of `rby1_hardware/launch/rby1_hardware.launch.py`:
 
 | Line | Meaning |
 |---|---|
-| `MOVEIT_CONFIG_PACKAGE` | `rby1_moveit_{a,m}_{1_0,1_1,1_2,1_3}`: the package whose URDF (with the `<ros2_control>` tag) and `config/ros2_controllers.yaml` are used. Only its files are read; nothing of MoveIt runs |
-| `ROBOT_DESCRIPTION` | its `config/*.urdf.xacro`, e.g. `RBY1_M_v1_2.urdf.xacro` |
 | `CONTROLLERS` | the controllers started active, from its `ros2_controllers.yaml`: `right_arm_controller`, `left_arm_controller`, `both_arms_controller`, `torso_controller`, `head_controller`, `body_controller` (v1.3 also `gripper_r_controller`, `gripper_l_controller`). Two active controllers cannot share a joint |
 
 ```bash
@@ -364,9 +364,9 @@ line. Edit these three lines for your RB-Y1:
 ros2 launch rby1_driver rby1_ros2_driver.launch.py
 
 # terminal 2
-ros2 launch rby1_hardware rby1_hardware.launch.py
-# ros2 launch rby1_hardware rby1_hardware.launch.py robot_ip:=192.168.30.1:50051   # a robot
-# ros2 launch rby1_hardware rby1_hardware.launch.py use_fake_hardware:=true        # no robot, no driver (mock hardware)
+ros2 launch rby1_hardware rby1_hardware.launch.py model:=m version:=1.2
+# ros2 launch rby1_hardware rby1_hardware.launch.py model:=m version:=1.2 robot_ip:=192.168.30.1:50051   # a robot
+# ros2 launch rby1_hardware rby1_hardware.launch.py model:=m version:=1.2 use_fake_hardware:=true        # no robot, no driver (mock hardware)
 ```
 
 | Argument | Default | Meaning |
@@ -374,6 +374,7 @@ ros2 launch rby1_hardware rby1_hardware.launch.py
 | `robot_ip` | `127.0.0.1:50051` | robot address and gRPC port (the one the driver is connected to) |
 | `driver_namespace` | `rby1` | namespace of the running driver |
 | `use_fake_hardware` | `false` | `true`: `mock_components/GenericSystem` instead of the robot |
+| `model`, `version` | required | robot kind (`a`, `m`) and version (`1.2`) |
 
 From then on it is plain `ros2_control`: joint states on `/joint_states`, a trajectory to
 `/<controller>/follow_joint_trajectory` (`control_msgs/action/FollowJointTrajectory`) or `/<controller>/joint_trajectory`,

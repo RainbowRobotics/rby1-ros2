@@ -68,11 +68,11 @@ size_t least_motion(const std::vector<double> & current, const std::vector<std::
   return best;
 }
 
-std::optional<std::string> robot_problem(const rby1_msgs::msg::RobotState & state) {
+std::optional<std::string> robot_problem(const rby1_msgs::msg::RobotState & state, const std::string & reset_service) {
   if (state.emo_state) return "Emergency stop is pressed; release it and send the target again";
   if (state.control_manager_state == rby1_msgs::msg::RobotState::STATE_MAJOR_FAULT) {
-    return "Control manager is in a major fault. Reset it with: ros2 service call "
-           "/rby1/control_manager_command rby1_msgs/srv/ControlManagerCommand \"{command: 3}\"";
+    return "Control manager is in a major fault. Reset it with: ros2 service call " + reset_service +
+           " rby1_msgs/srv/ControlManagerCommand \"{command: 3}\"";
   }
   return std::nullopt;
 }

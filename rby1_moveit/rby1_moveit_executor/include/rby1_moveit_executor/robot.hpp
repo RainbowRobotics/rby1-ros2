@@ -39,7 +39,7 @@ double largest_turn(const std::vector<double> & from, const std::vector<double> 
 // (largest_turn); its index. Throws when there is none.
 size_t least_motion(const std::vector<double> & current, const std::vector<std::vector<double>> & solutions);
 
-// Why the robot cannot move now, or nothing.
-std::optional<std::string> robot_problem(const rby1_msgs::msg::RobotState & state);
+// Why the robot cannot move now, or nothing. `reset_service`: the driver's control_manager_command, named in the advice.
+std::optional<std::string> robot_problem(const rby1_msgs::msg::RobotState & state, const std::string & reset_service);
 
 }  // namespace rby1_moveit_executor

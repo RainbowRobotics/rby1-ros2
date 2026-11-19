@@ -13,6 +13,14 @@
   <exec_depend>launch_ros</exec_depend>
   <exec_depend>python3-yaml</exec_depend>
   <exec_depend>rby1_driver</exec_depend>
+  <exec_depend>rby1_hardware</exec_depend>
+  <exec_depend>rby1_moveit_a_1_0</exec_depend>
+  <exec_depend>rby1_moveit_a_1_1</exec_depend>
+  <exec_depend>rby1_moveit_a_1_2</exec_depend>
+  <exec_depend>rby1_moveit_m_1_0</exec_depend>
+  <exec_depend>rby1_moveit_m_1_1</exec_depend>
+  <exec_depend>rby1_moveit_m_1_2</exec_depend>
+  <exec_depend>rby1_moveit_m_1_3</exec_depend>
   <exec_depend>rby1_moveit_executor</exec_depend>
   <exec_depend>rby1_moveit_objects</exec_depend>
   <exec_depend>rby1_tools</exec_depend>
