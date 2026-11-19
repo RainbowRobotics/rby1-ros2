@@ -1,0 +1,45 @@
+# Modules on the robot and fixtures around it, for:
+#   ros2 launch rby1_moveit_objects objects.launch.py [config:=/path/to/your.yaml]
+#
+# Each object:
+#   name         unique name in the planning scene
+#   frame        where it is placed: a robot link (ee_right, ee_left, link_head_2, link_torso_5, ...) or base
+#   attach       true: fixed to that link, moves with it (default)
+#                false: placed in the world where the frame is when applied, stays there
+#   xyz, rpy     pose in `frame` (m, rad); default 0
+#   type         box (size: [x, y, z]), sphere (radius), cylinder (radius, height; along z),
+#                or mesh (mesh: file, scale: [x, y, z])
+#   mesh         STL / DAE / OBJ: a path relative to this file, an absolute path,
+#                file://..., or package://<package>/...
+#   touch_links  (attached) robot links it may touch without that counting as a collision;
+#                default: its own link
+#
+# RViz shows them in the MotionPlanning display. MoveIt (OMPL) plans with all of them.
+# cuMotion plans with the attach: false ones and, through its target executor, with
+# what is attached to the planning arm's tool frame (as spheres on the hand; parts
+# named in the executor's free_objects are left out). The RB-Y1 gripper as such
+# modules: rby1_tools/model/rby1_gripper/gripper.yaml (rby1_tools gripper.launch.py scene:=true).
+objects:
+  - name: head_camera            # a camera-sized box on the head, from a mesh file
+    frame: link_head_2
+    attach: true
+    xyz: [0.06, 0.0, 0.03]
+    type: mesh
+    mesh: meshes/camera_box.stl
+
+  - name: tool_tip               # a 12 cm rod held in the right gripper (ee_right's -z points away from the wrist);
+                                 # it passes through the gripper, so the gripper's modules (gripper.yaml) may touch it
+    frame: ee_right
+    attach: true
+    xyz: [0.0, 0.0, -0.06]
+    type: cylinder
+    radius: 0.012
+    height: 0.12
+    touch_links: [ee_right, link_right_arm_6, gripper_right_body, gripper_right_finger_1, gripper_right_finger_2]
+
+  - name: workbench              # a fixed table in front of the robot
+    frame: base
+    attach: false
+    xyz: [0.85, 0.0, 0.35]
+    type: box
+    size: [0.4, 1.0, 0.7]

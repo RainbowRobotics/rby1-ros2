@@ -19,14 +19,14 @@ Sequence:
   5. Send Power OFF request.
 
 Run:
-  ros2 run rby1_examples power_control
+  ros2 run rby1_examples 01_power_control
 
 Services used:
   - robot_power  (StateOnOff)
   - robot_servo  (StateOnOff)
 
 Topics subscribed:
-  - joint_states/robot_state  (RobotState)
+  - robot_state  (rby1_msgs/RobotState)
 """
 import sys
 import time

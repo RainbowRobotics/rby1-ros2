@@ -1,0 +1,11 @@
+# Where each gripper sits on the robot, for gripper.launch.py: the gripper's model (TF, RViz)
+# and its parts in the planning scene are placed with this. The RB-Y1 gripper mounts on the
+# tool frame with no offset; measure yours (an adapter plate, another gripper) and change it.
+right:
+  parent: ee_right           # robot link the gripper is fixed to
+  xyz: [0.0, 0.0, 0.0]       # m, in parent
+  rpy: [0.0, 0.0, 0.0]       # rad, in parent
+left:
+  parent: ee_left
+  xyz: [0.0, 0.0, 0.0]
+  rpy: [0.0, 0.0, 0.0]

@@ -8,8 +8,6 @@ moveit_simple_controller_manager:
     - left_arm_controller
     - torso_controller
     - head_controller
-    - gripper_r_controller
-    - gripper_l_controller
 
   right_arm_controller:
     type: FollowJointTrajectory
@@ -93,16 +91,6 @@ moveit_simple_controller_manager:
       - right_arm_5
       - right_arm_6
     action_ns: follow_joint_trajectory
-  gripper_r_controller:
-    type: GripperCommand
-    joints:
-      - gripper_finger_r1_joint
-    action_ns: gripper_cmd
-  gripper_l_controller:
-    type: GripperCommand
-    joints:
-      - gripper_finger_l1_joint
-    action_ns: gripper_cmd
 
 trajectory_execution:
   allowed_start_tolerance: 0.03

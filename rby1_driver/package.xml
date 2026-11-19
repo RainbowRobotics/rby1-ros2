@@ -3,7 +3,7 @@
 <package format="3">
   <name>rby1_driver</name>
   <depend>rby1_msgs</depend>
-  <version>0.0.0</version>
+  <version>1.0.0</version>
   <description>TODO: Package description</description>
   <maintainer email="sangmin.jeon@rainbow-robotics.com">rainbow</maintainer>
   <license>TODO: License declaration</license>

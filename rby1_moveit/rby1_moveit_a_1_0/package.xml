@@ -3,7 +3,7 @@
 <package format="3">
   <name>rby1_moveit_a_1_0</name>
   <depend>rby1_msgs</depend>
-  <version>0.3.0</version>
+  <version>1.0.0</version>
   <description>
      An automatically generated package with all the configuration and launch files for using the RBY1_A_v1_0 with the MoveIt Motion Planning Framework
   </description>
@@ -27,14 +27,15 @@
   <exec_depend>joint_state_publisher_gui</exec_depend>
   <exec_depend>tf2_ros</exec_depend>
   <exec_depend>xacro</exec_depend>
-  <!-- The next 2 packages are required for the gazebo simulation.
-       We don't include them by default to prevent installing gazebo and all its dependencies. -->
-  <!-- <exec_depend>joint_trajectory_controller</exec_depend> -->
-  <!-- <exec_depend>gazebo_ros_control</exec_depend> -->
+  <!-- ros2_control: the controller manager and the controllers of config/ros2_controllers.yaml -->
   <exec_depend>controller_manager</exec_depend>
+  <exec_depend>joint_state_broadcaster</exec_depend>
+  <exec_depend>joint_trajectory_controller</exec_depend>
   <exec_depend>moveit_configs_utils</exec_depend>
   <exec_depend>moveit_ros_move_group</exec_depend>
   <exec_depend>moveit_ros_visualization</exec_depend>
+  <exec_depend>moveit_visual_tools</exec_depend>
+  <exec_depend>interactive_markers</exec_depend>
   <exec_depend>moveit_ros_warehouse</exec_depend>
   <exec_depend>moveit_setup_assistant</exec_depend>
   <exec_depend>rby1_description</exec_depend>
@@ -43,7 +44,6 @@
   <exec_depend>rviz_common</exec_depend>
   <exec_depend>rviz_default_plugins</exec_depend>
   <exec_depend>tf2_ros</exec_depend>
-  <exec_depend>warehouse_ros_mongo</exec_depend>
   <exec_depend>xacro</exec_depend>
 
 

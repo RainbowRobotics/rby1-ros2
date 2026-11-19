@@ -1,0 +1,31 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>rby1_bringup</name>
+  <version>1.0.0</version>
+  <description>One launch that starts the RB-Y1 driver with what you choose next to it: the MoveIt planner or MoveIt with ros2_control, the planning scene, the camera, the virtual gripper</description>
+  <maintainer email="rby.support@rainbow-robotics.com">Rainbow Robotics</maintainer>
+  <license>TODO: License declaration</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+  <exec_depend>python3-yaml</exec_depend>
+  <exec_depend>rby1_driver</exec_depend>
+  <exec_depend>rby1_hardware</exec_depend>
+  <exec_depend>rby1_moveit_a_1_0</exec_depend>
+  <exec_depend>rby1_moveit_a_1_1</exec_depend>
+  <exec_depend>rby1_moveit_a_1_2</exec_depend>
+  <exec_depend>rby1_moveit_m_1_0</exec_depend>
+  <exec_depend>rby1_moveit_m_1_1</exec_depend>
+  <exec_depend>rby1_moveit_m_1_2</exec_depend>
+  <exec_depend>rby1_moveit_m_1_3</exec_depend>
+  <exec_depend>rby1_moveit_executor</exec_depend>
+  <exec_depend>rby1_moveit_objects</exec_depend>
+  <exec_depend>rby1_tools</exec_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

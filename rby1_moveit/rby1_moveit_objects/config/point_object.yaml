@@ -1,0 +1,34 @@
+# The obstacle that object_at_point puts where /rby1/scene/object_point says, for:
+#   ros2 launch rby1_moveit_objects point_object.launch.py [config:=/path/to/your.yaml]
+#
+#   name     name in the planning scene; every point moves the object of this name
+#   kind     box (size: [x, y, z]), sphere (radius) or cylinder (radius, height; along z)
+#   offset   added to the point (m, in the point's frame); default 0. The object's centre
+#            is at point + offset: with offset z = half the height it stands on the point
+#   rpy      orientation in the point's frame (rad); default 0
+#
+# To follow a pose as well (a marker the camera sees):
+#   pose_topic  a geometry_msgs/PoseStamped topic, such as /rby1/marker_7/pose; "" for none.
+#               The pose's position is taken to base with TF and the object goes there
+#               (offset and rpy then count in base). Or, for one run:
+#               ros2 launch rby1_moveit_objects point_object.launch.py pose_topic:=/rby1/marker_7/pose
+#   min_move    m; a pose moves the object only when it is further than this from where the
+#               last pose put it. A marker's pose shakes a little in every image.
+#   remove_after  s; when no pose came for this long (the marker is out of sight or hidden),
+#               the object is taken out of the scene, and the next pose puts it back.
+#               0.0: never -- it stays where the marker was last seen.
+#
+# These are ROS parameters: write every number with a decimal point (0.1, 1.0 -- not 1),
+# or the node refuses the file.
+rby1_object_at_point:
+  ros__parameters:
+    name: point_object
+    kind: box
+    size: [0.12, 0.12, 0.12]
+    # radius: 0.03
+    # height: 0.10
+    offset: [0.0, 0.0, 0.0]
+    rpy: [0.0, 0.0, 0.0]
+    pose_topic: ""
+    min_move: 0.01
+    remove_after: 0.0 # if this is 0.0, the object stays in the scene when the pose disappears

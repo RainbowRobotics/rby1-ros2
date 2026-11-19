@@ -153,12 +153,14 @@
                 <state_interface name="position">
                   <param name="initial_value">${initial_positions['gripper_finger_r1_joint']}</param>
                 </state_interface>
+                <state_interface name="velocity"/>  <!-- GripperActionController needs it -->
             </joint>
             <joint name="gripper_finger_l1_joint">
                 <command_interface name="position"/>
                 <state_interface name="position">
                   <param name="initial_value">${initial_positions['gripper_finger_l1_joint']}</param>
                 </state_interface>
+                <state_interface name="velocity"/>  <!-- GripperActionController needs it -->
             </joint>
 
         </ros2_control>

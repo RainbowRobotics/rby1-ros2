@@ -13,8 +13,14 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
-if(DEFINED ENV{RBY1_SDK_PATH})
-  set(RBY1_SDK_PATH $ENV{RBY1_SDK_PATH})
+# The RB-Y1 SDK (https://github.com/RainbowRobotics/rby1-sdk), built from source:
+# RBY1_SDK_PATH points at its source tree, with its build in <RBY1_SDK_PATH>/build.
+if(NOT DEFINED ENV{RBY1_SDK_PATH})
+  message(FATAL_ERROR "RBY1_SDK_PATH is not set: export RBY1_SDK_PATH=<path to rby1-sdk> (see README 1-2)")
+endif()
+set(RBY1_SDK_PATH $ENV{RBY1_SDK_PATH})
+if(NOT EXISTS "${RBY1_SDK_PATH}/include/rby1-sdk/robot.h" OR NOT EXISTS "${RBY1_SDK_PATH}/build/src")
+  message(FATAL_ERROR "RBY1_SDK_PATH=${RBY1_SDK_PATH} has no include/rby1-sdk/robot.h or build/src: build the SDK there first (see README 1-2)")
 endif()
 # find dependencies
 find_package(ament_cmake REQUIRED)
@@ -37,16 +43,15 @@ include_directories(/
   /usr/include/eigen3 
 )
 
-file(GLOB_RECURSE SOURCES src/*.cpp)
-
 link_directories(
   ${RBY1_SDK_PATH}/build/src)
 
 set(CMAKE_INSTALL_RPATH "${RBY1_SDK_PATH}/build/src")
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
+# command_builder.cpp, control.cpp, control_stream.cpp, kinematics.cpp, power.cpp and state_manager.cpp are included by rby1_ros2_driver.cpp.
 add_executable(rby1_ros2_driver
- ${SOURCES}
+ src/rby1_ros2_driver.cpp
  src/main.cpp
 )
 

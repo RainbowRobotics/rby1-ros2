@@ -17,7 +17,7 @@ Sequence:
   3. Send left-arm goal, wait 1 s, cancel via Trigger service.
 
 Run:
-  ros2 run rby1_examples cancel_control
+  ros2 run rby1_examples 11_cancel_control
 
 Actions used:
   - robot_joint        (Rby1JointCommand)
@@ -28,7 +28,7 @@ Services used:
   - cancel_control     (std_srvs/Trigger)
 
 Topics subscribed:
-  - joint_states/robot_state  (RobotState)
+  - robot_state  (rby1_msgs/RobotState)
 """
 import time
 import rclpy
@@ -38,6 +38,22 @@ from rby1_msgs.action import Rby1JointCommand
 from rby1_msgs.msg import JointCommand, RobotState
 from rby1_msgs.srv import StateOnOff
 from std_srvs.srv import Trigger
+
+# Values to change: edit these to adjust the example.
+# Part 0, zero pose
+ZERO_TORSO = [0.0] * 6                                     # rad, torso_0 .. torso_5
+ZERO_RIGHT_ARM = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]       # rad
+ZERO_LEFT_ARM = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]        # rad
+ZERO_HEAD = [0.0] * 2                                      # rad
+ZERO_MINIMUM_TIME = 4.0                                    # s, the move takes at least this long
+# Part 1, right arm goal canceled by the action
+RIGHT_ARM_TARGET = [0.0, -1.0, 0.0, -1.57, 0.0, 0.0, 0.0]  # rad
+RIGHT_ARM_MINIMUM_TIME = 10.0                              # s
+ACTION_CANCEL_AFTER = 2.0                                  # s after the goal is accepted
+# Part 2, left arm goal canceled by the cancel_control service
+LEFT_ARM_TARGET = [0.0, 1.0, 0.0, -1.57, 0.0, 0.0, 0.0]    # rad
+LEFT_ARM_MINIMUM_TIME = 5.0                                # s
+SERVICE_CANCEL_AFTER = 2.0                                 # s after the goal is accepted
 
 class CancelControlExample(Node):
     def __init__(self):
@@ -105,23 +121,23 @@ class CancelControlExample(Node):
         goal_msg = Rby1JointCommand.Goal()
         
         cmd_torso = JointCommand()
-        cmd_torso.position = [0.0] * 6
-        cmd_torso.minimum_time = 4.0
+        cmd_torso.position = ZERO_TORSO
+        cmd_torso.minimum_time = ZERO_MINIMUM_TIME
         goal_msg.torso = cmd_torso
 
         cmd_right = JointCommand()
-        cmd_right.position = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-        cmd_right.minimum_time = 4.0
+        cmd_right.position = ZERO_RIGHT_ARM
+        cmd_right.minimum_time = ZERO_MINIMUM_TIME
         goal_msg.right_arm = cmd_right
 
         cmd_left = JointCommand()
-        cmd_left.position = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-        cmd_left.minimum_time = 4.0
+        cmd_left.position = ZERO_LEFT_ARM
+        cmd_left.minimum_time = ZERO_MINIMUM_TIME
         goal_msg.left_arm = cmd_left
 
         cmd_head = JointCommand()
-        cmd_head.position = [0.0] * 2
-        cmd_head.minimum_time = 4.0
+        cmd_head.position = ZERO_HEAD
+        cmd_head.minimum_time = ZERO_MINIMUM_TIME
         goal_msg.head = cmd_head
 
         self._action_client.wait_for_server()
@@ -158,8 +174,8 @@ def main(args=None):
     
     # 1. Action Cancellation (Right Arm)
     example.get_logger().info('--- Part 1: Action Cancellation ---')
-    position = [0.0, -1.0, 0.0, -1.57, 0.0, 0.0, 0.0]
-    min_time = 10.0
+    position = RIGHT_ARM_TARGET
+    min_time = RIGHT_ARM_MINIMUM_TIME
     
     future = example.send_right_arm_goal(position, min_time)
     rclpy.spin_until_future_complete(example, future)
@@ -167,7 +183,7 @@ def main(args=None):
 
     if goal_handle.accepted:
         example.get_logger().info('Goal accepted. Waiting 2 seconds before action-canceling...')
-        time.sleep(2.0)
+        time.sleep(ACTION_CANCEL_AFTER)
         cancel_future = goal_handle.cancel_goal_async()
         rclpy.spin_until_future_complete(example, cancel_future)
         example.get_logger().info('Action Cancel request sent.')
@@ -181,8 +197,8 @@ def main(args=None):
 
     # 2. Service Cancellation (Left Arm)
     example.get_logger().info('--- Part 2: Service Cancellation (Global Stop) ---')
-    left_position = [0.0, 1.0, 0.0, -1.57, 0.0, 0.0, 0.0] 
-    min_time = 5.0
+    left_position = LEFT_ARM_TARGET
+    min_time = LEFT_ARM_MINIMUM_TIME
     
     future = example.send_left_arm_goal(left_position, min_time)
     rclpy.spin_until_future_complete(example, future)
@@ -190,8 +206,8 @@ def main(args=None):
 
     if goal_handle.accepted:
         example.get_logger().info('Goal accepted. Waiting 2 seconds before service-canceling...')
-        time.sleep(2.0)
-        
+        time.sleep(SERVICE_CANCEL_AFTER)
+
         example.get_logger().info('Calling cancel_control service...')
         service_result = example.send_cancel_service_request()
         example.get_logger().info(f'Service Response: {service_result.success}, {service_result.message}')

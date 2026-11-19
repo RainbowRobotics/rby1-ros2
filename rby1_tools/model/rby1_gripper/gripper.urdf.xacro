@@ -1,0 +1,78 @@
+<?xml version="1.0"?>
+<!-- The RB-Y1 gripper on one hand, for rby1_tools' gripper.launch.py (model:=true): a
+     robot_state_publisher per hand loads it and publishes the gripper's frames under the
+     robot's tool frame (ee_right / ee_left), which the RB-Y1 URDF up to v1.2 ends at. The
+     root link here IS that tool frame (its own transform comes from the robot's TF), the
+     mount joint carries the offset of config/gripper/gripper_mount.yaml, and the finger joints take
+     their states from the virtual gripper or the gripper driver (joint_states_topic).
+     The same body and fingers as gripper.yaml puts in the planning scene; the masses are
+     the RB-Y1 v1.3 URDF's. An RB-Y1 v1.3 carries the gripper in its URDF: not for it. -->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="rby1_gripper">
+  <xacro:arg name="hand" default="right"/>     <!-- right or left -->
+  <xacro:arg name="parent" default="ee_right"/> <!-- the robot link it is mounted on -->
+  <xacro:arg name="xyz" default="0 0 0"/>       <!-- mount offset in the parent, m -->
+  <xacro:arg name="rpy" default="0 0 0"/>       <!-- rad -->
+
+  <xacro:macro name="rby1_gripper" params="hand parent xyz rpy">
+    <xacro:property name="h" value="${'r' if hand == 'right' else 'l'}"/>
+    <xacro:property name="meshes" value="package://rby1_tools/model/rby1_gripper/meshes"/>
+
+    <link name="${parent}"/>
+
+    <joint name="gripper_${hand}_joint" type="fixed">
+      <parent link="${parent}"/>
+      <child link="gripper_${hand}"/>
+      <origin xyz="${xyz}" rpy="${rpy}"/>
+    </joint>
+
+    <link name="gripper_${hand}">
+      <inertial>
+        <mass value="0.47470074"/>
+        <origin xyz="0.00041345 0.00160451 -0.02702162" rpy="0 0 0"/>
+        <inertia ixx="0.00053136" ixy="0.00001907" ixz="0.00000050" iyy="0.00031059" iyz="0.00000880" izz="0.00060261"/>
+      </inertial>
+      <visual>
+        <geometry><mesh filename="${meshes}/EE_BODY.dae"/></geometry>
+      </visual>
+      <collision>
+        <geometry><mesh filename="${meshes}/EE_BODY.dae"/></geometry>
+      </collision>
+    </link>
+
+    <!-- The fingers: each opens along the tool frame's x, away from the other (finger 1
+         toward +x, finger 2 toward -x); 0 closed, 0.05 m open. Finger 2's joint reads
+         minus the opening (its axis points the other way), as the states are published. -->
+    <xacro:macro name="finger" params="index sign yaw">
+      <link name="gripper_finger_${h}${index}">
+        <inertial>
+          <mass value="0.03326999"/>
+          <origin xyz="0.00278346 -0.00000329 -0.02570112" rpy="0 0 0"/>
+          <inertia ixx="0.00001231" ixy="0.0" ixz="-0.00000042" iyy="0.00001066" iyz="0.0" izz="0.00000224"/>
+        </inertial>
+        <visual>
+          <geometry><mesh filename="${meshes}/EE_FINGER.dae"/></geometry>
+        </visual>
+        <collision>
+          <geometry><mesh filename="${meshes}/EE_FINGER.dae"/></geometry>
+        </collision>
+      </link>
+      <joint name="gripper_finger_${h}${index}_joint" type="prismatic">
+        <parent link="gripper_${hand}"/>
+        <child link="gripper_finger_${h}${index}"/>
+        <origin xyz="${sign * 0.003} 0 -0.075" rpy="0 0 ${yaw}"/>
+        <axis xyz="${sign} 0 0"/>
+        <xacro:if value="${sign > 0}">
+          <limit effort="1000" velocity="0.05" lower="0.0" upper="0.05"/>
+        </xacro:if>
+        <xacro:unless value="${sign > 0}">
+          <limit effort="1000" velocity="0.05" lower="-0.05" upper="0.0"/>
+          <mimic joint="gripper_finger_${h}1_joint" multiplier="-1.0" offset="0.0"/>
+        </xacro:unless>
+      </joint>
+    </xacro:macro>
+    <xacro:finger index="1" sign="1" yaw="0"/>
+    <xacro:finger index="2" sign="-1" yaw="${pi}"/>
+  </xacro:macro>
+
+  <xacro:rby1_gripper hand="$(arg hand)" parent="$(arg parent)" xyz="$(arg xyz)" rpy="$(arg rpy)"/>
+</robot>

@@ -2,7 +2,7 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>rby1_hardware</name>
-  <version>0.0.0</version>
+  <version>1.0.0</version>
   <description>ros2_control Hardware Interface for Rainbow Robotics RBY1</description>
   <maintainer email="sangmin.jeon@rainbow-robotics.com">rainbow</maintainer>
   <license>Apache-2.0</license>
@@ -16,6 +16,23 @@
   <depend>rby1_msgs</depend>
   <depend>sensor_msgs</depend>
   <depend>geometry_msgs</depend>
+
+  <!-- launch/rby1_hardware.launch.py: ros2_control without MoveIt -->
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+  <exec_depend>xacro</exec_depend>
+  <exec_depend>robot_state_publisher</exec_depend>
+  <exec_depend>controller_manager</exec_depend>
+  <exec_depend>joint_state_broadcaster</exec_depend>
+  <exec_depend>joint_trajectory_controller</exec_depend>
+  <!-- the URDF and controllers of the robot named by model:= version:= -->
+  <exec_depend>rby1_moveit_a_1_0</exec_depend>
+  <exec_depend>rby1_moveit_a_1_1</exec_depend>
+  <exec_depend>rby1_moveit_a_1_2</exec_depend>
+  <exec_depend>rby1_moveit_m_1_0</exec_depend>
+  <exec_depend>rby1_moveit_m_1_1</exec_depend>
+  <exec_depend>rby1_moveit_m_1_2</exec_depend>
+  <exec_depend>rby1_moveit_m_1_3</exec_depend>
 
   <export>
     <build_type>ament_cmake</build_type>

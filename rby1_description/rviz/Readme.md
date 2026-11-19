@@ -1,3 +1,2 @@
-- this folder is for rviz files
-- all rviz files are located in the `install/rby1_description/share/rby1_description/rviz/`
-- if you rebuild rby1_description on other ws, you will need to reset your options in rviz 
+- `robot.rviz`: the RViz layout `rby1_state_publisher.launch.py` opens (RobotModel from `/robot_description`, TF, Fixed Frame `base`).
+- Installed to `share/rby1_description/rviz/`; edit this file and rebuild (with `--symlink-install` no rebuild is needed).

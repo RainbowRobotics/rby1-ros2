@@ -7,7 +7,9 @@ to move the RBY1 robot's omnidirectional/wheeled mobile base while simultaneousl
 sending an upper-body (arm/head) joint position command.
 
 NOTE: Stream control MUST be activated before publishing cmd_vel commands.
-      The driver ignores cmd_vel topics if the stream is not open.
+      The driver ignores cmd_vel topics if the stream's 'mobile' channel is not open.
+      To drive the base alone, 'mobile' is enough (stream_control, parameters: mobile).
+      This example also moves the upper body, so it opens that part's channels too.
 
 NOTE: cancel_control service also closes the stream.
       If you only want to cancel the command (keep stream open),
@@ -32,6 +34,7 @@ Run:
 """
 import time
 import rclpy
+from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 from rclpy.action import ActionClient
 from geometry_msgs.msg import Twist
@@ -39,6 +42,24 @@ from rby1_msgs.action import Rby1JointCommand
 from rby1_msgs.msg import JointCommand, RobotState
 from rby1_msgs.msg import RobotState
 from rby1_msgs.srv import StateOnOff
+
+# Values to change: edit these to adjust the example.
+# The stream channels this example commands: the base by cmd_vel, and -- with a stream open, the
+# upper-body joint command goes out on streams too -- the arms, torso and head.
+STREAM_CHANNELS = 'mobile, right_arm, left_arm, torso, head'
+# Upper-body pose, sent before the base moves
+ZERO_TORSO = [0.0] * 6        # rad, torso_0 .. torso_5
+ZERO_RIGHT_ARM = [0.0] * 7    # rad
+ZERO_LEFT_ARM = [0.0] * 7     # rad
+ZERO_HEAD = [0.0] * 2         # rad
+POSE_MINIMUM_TIME = 5.0       # s, the move takes at least this long
+POSE_PRIORITY = 1             # the mobile base's priority, so both can be commanded at once
+# Mobile base
+LINEAR_SPEED = 0.1            # m/s, forward, backward and sideways
+ANGULAR_SPEED = 0.25          # rad/s
+DRIVE_TIME = 2.0              # s, each drive and each rotation
+STOP_TIME = 1.0               # s, each stop between them
+CMD_VEL_PERIOD = 0.04         # s between cmd_vel messages
 
 class MobileBaseControl(Node):
     def __init__(self):
@@ -112,13 +133,14 @@ class MobileBaseControl(Node):
         self.stream_client.wait_for_service()
         req = StateOnOff.Request()
         req.state = state
+        req.parameters = STREAM_CHANNELS
         req.value = value
         future = self.stream_client.call_async(req)
         rclpy.spin_until_future_complete(self, future)
         if future.result() is None or not future.result().success:
             self.get_logger().error(f'Failed to change stream control to {state}: {future.result().message if future.result() else "No response"}')
             return False
-        self.get_logger().info(f'Stream control is {"ON" if state else "OFF"}.')
+        self.get_logger().info(f'Stream control is {"ON" if state else "OFF"}: {future.result().message}')
         return True
 
     def send_velocity(self, vx, vy, wz):
@@ -151,7 +173,7 @@ class MobileBaseControl(Node):
             goal_msg.head.position = head_pos
             goal_msg.head.minimum_time = minimum_time
 
-        goal_msg.priority = 1
+        goal_msg.priority = POSE_PRIORITY
 
         self._action_client.wait_for_server()
         self.get_logger().info('Sending Prepare Posture Goal...')
@@ -175,34 +197,37 @@ def main(args=None):
     rclpy.init(args=args)
     controller = MobileBaseControl()
 
-    velocity = 0.1
-    angular_velocity = 0.25
+    velocity = LINEAR_SPEED
+    angular_velocity = ANGULAR_SPEED
 
     # Ensure Robot is Power ON and Servo ON
     if not controller.ensure_robot_ready():
         controller.get_logger().error('Failed to prepare robot. Exiting.')
         controller.destroy_node()
-        rclpy.shutdown()
+        if rclpy.ok():
+            rclpy.shutdown()
         return
 
     # 1. Send Prepare Posture Goal (Wait for completion while stream is inactive)
     controller.get_logger().info('Sending zero position (minimum_time = 5.0s)...')
-    torso_pos = [0.0] * 6
-    right_pos = [0.0] * 7
-    left_pos = [0.0] * 7
-    head_pos = [0.0] * 2
-    
-    if not controller.send_pose_goal(torso_pos, right_pos, left_pos, head_pos, 5.0):
+    torso_pos = ZERO_TORSO
+    right_pos = ZERO_RIGHT_ARM
+    left_pos = ZERO_LEFT_ARM
+    head_pos = ZERO_HEAD
+
+    if not controller.send_pose_goal(torso_pos, right_pos, left_pos, head_pos, POSE_MINIMUM_TIME):
         controller.get_logger().error('Failed to reach zero position. Exiting.')
         controller.destroy_node()
-        rclpy.shutdown()
+        if rclpy.ok():
+            rclpy.shutdown()
         return
 
     # 2. Activate Stream Control (Now safe because single command is done)
     if not controller.activate_stream_control(True):
         controller.get_logger().error('Failed to activate stream control. Exiting.')
         controller.destroy_node()
-        rclpy.shutdown()
+        if rclpy.ok():
+            rclpy.shutdown()
         return
     time.sleep(1.0)
     controller.get_logger().info('Stream activated. Starting mobile base control...')
@@ -211,79 +236,79 @@ def main(args=None):
         # Phase 1: Drive Forward
         controller.get_logger().info('Driving forward at {velocity} m/s for 2.0 seconds...')
         start_time = time.time()
-        while time.time() - start_time < 2.0 and rclpy.ok():
+        while time.time() - start_time < DRIVE_TIME and rclpy.ok():
             controller.send_velocity(velocity, 0.0, 0.0)
             rclpy.spin_once(controller, timeout_sec=0.01)
-            time.sleep(0.04)
+            time.sleep(CMD_VEL_PERIOD)
 
         # Stop
         controller.get_logger().info('Stopping base for 1.0 second...')
         start_time = time.time()
-        while time.time() - start_time < 1.0 and rclpy.ok():
+        while time.time() - start_time < STOP_TIME and rclpy.ok():
             controller.send_velocity(0.0, 0.0, 0.0)
             rclpy.spin_once(controller, timeout_sec=0.01)
-            time.sleep(0.04)
+            time.sleep(CMD_VEL_PERIOD)
 
         # Phase 2: Drive Backward
         controller.get_logger().info(f'Driving backward at {-velocity} m/s for 2.0 seconds...')
         start_time = time.time()
-        while time.time() - start_time < 2.0 and rclpy.ok():
+        while time.time() - start_time < DRIVE_TIME and rclpy.ok():
             controller.send_velocity(-velocity, 0.0, 0.0)
             rclpy.spin_once(controller, timeout_sec=0.01)
-            time.sleep(0.04)
+            time.sleep(CMD_VEL_PERIOD)
 
         # Stop
         controller.get_logger().info('Stopping base for 1.0 second...')
         start_time = time.time()
-        while time.time() - start_time < 1.0 and rclpy.ok():
+        while time.time() - start_time < STOP_TIME and rclpy.ok():
             controller.send_velocity(0.0, 0.0, 0.0)
             rclpy.spin_once(controller, timeout_sec=0.01)
-            time.sleep(0.04)
+            time.sleep(CMD_VEL_PERIOD)
 
         # Phase 3: Rotate
         controller.get_logger().info(f'Rotating base at {angular_velocity} rad/s for 2.0 seconds...')
         start_time = time.time()
-        while time.time() - start_time < 2.0 and rclpy.ok():
+        while time.time() - start_time < DRIVE_TIME and rclpy.ok():
             controller.send_velocity(0.0, 0.0, angular_velocity)
             rclpy.spin_once(controller, timeout_sec=0.01)
-            time.sleep(0.04)
+            time.sleep(CMD_VEL_PERIOD)
 
         # Stop
         controller.get_logger().info('Stopping base for 1.0 second...')
         start_time = time.time()
-        while time.time() - start_time < 1.0 and rclpy.ok():
+        while time.time() - start_time < STOP_TIME and rclpy.ok():
             controller.send_velocity(0.0, 0.0, 0.0)
             rclpy.spin_once(controller, timeout_sec=0.01)
-            time.sleep(0.04)
+            time.sleep(CMD_VEL_PERIOD)
 
         # Phase 4: Rotate
         controller.get_logger().info(f'Rotating base at {angular_velocity} rad/s for 2.0 seconds...')
         start_time = time.time()
-        while time.time() - start_time < 2.0 and rclpy.ok():
+        while time.time() - start_time < DRIVE_TIME and rclpy.ok():
             controller.send_velocity(0.0, 0.0, -angular_velocity)
             rclpy.spin_once(controller, timeout_sec=0.01)
-            time.sleep(0.04)
+            time.sleep(CMD_VEL_PERIOD)
 
         # Stop
         controller.get_logger().info('Stopping base for 1.0 second...')
         start_time = time.time()
-        while time.time() - start_time < 1.0 and rclpy.ok():
+        while time.time() - start_time < STOP_TIME and rclpy.ok():
             controller.send_velocity(0.0, 0.0, 0.0)
             rclpy.spin_once(controller, timeout_sec=0.01)
-            time.sleep(0.04)
+            time.sleep(CMD_VEL_PERIOD)
 
         # Phase 5: Drive Left (lateral translation)
         controller.get_logger().info(f'Driving left at {velocity} m/s for 2.0 seconds (mecanum base only)...')
         start_time = time.time()
-        while time.time() - start_time < 2.0 and rclpy.ok():
+        while time.time() - start_time < DRIVE_TIME and rclpy.ok():
             controller.send_velocity(0.0, velocity, 0.0)
             rclpy.spin_once(controller, timeout_sec=0.01)
-            time.sleep(0.04)
+            time.sleep(CMD_VEL_PERIOD)
 
         # Stop
         controller.get_logger().info('Stopping base for 1.0 second...')
         start_time = time.time()
-        while time.time() - start_time < 1.0 and rclpy.ok():
+        while time.time() - start_time < STOP_TIME and rclpy.ok():
             controller.send_velocity(0.0, 0.0, 0.0)
             rclpy.spin_once(controller, timeout_sec=0.01)
             time.sleep(0.01)
@@ -291,15 +316,15 @@ def main(args=None):
         # Phase 6: Drive Right (lateral translation)
         controller.get_logger().info(f'Driving right at {-velocity} m/s for 2.0 seconds (mecanum base only)...')
         start_time = time.time()
-        while time.time() - start_time < 2.0 and rclpy.ok():
+        while time.time() - start_time < DRIVE_TIME and rclpy.ok():
             controller.send_velocity(0.0, -velocity, 0.0)
             rclpy.spin_once(controller, timeout_sec=0.01)
-            time.sleep(0.04)
+            time.sleep(CMD_VEL_PERIOD)
 
         # Final Stop
         controller.get_logger().info('Stopping base movement.')
         controller.send_velocity(0.0, 0.0, 0.0)
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, ExternalShutdownException):
         pass
     finally:
         # Turn stream OFF on exit

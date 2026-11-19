@@ -1,0 +1,25 @@
+# realsense_publisher: an Intel RealSense through librealsense (camera.launch.py camera:=realsense).
+# Only what is switched on is opened and published; what the device does not offer at
+# width x height @ fps is warned about and left out. Topics and frames follow camera_name
+# (launch argument): /<camera_name>/<stream>/raw (compressed: .../compressed) and
+# /<camera_name>/<stream>/info for rgb, depth, ir_left, ir_right, and /<camera_name>/point_cloud;
+# frames <camera_name>_optical_frame (colour), _depth_optical_frame (depth, left infrared),
+# _ir_right_optical_frame. The mount is the launch argument mount.
+/**:
+  ros__parameters:
+    serial: ""                       # empty: the first RealSense found; else that one, or an error listing the connected ones
+    width: 1280                      # every stream opened at this size and rate
+    height: 720
+    fps: 30
+    use_rgb: true                    # colour, bgr8: .../rgb
+    use_depth: false                 # depth, 16UC1 in mm: .../depth
+    use_ir: false                    # both infrared cameras, mono8: .../ir_left (the depth reference), .../ir_right
+    use_point_cloud: false           # the depth as points (x, y, z in m): .../point_cloud; opens depth even without use_depth
+    align_depth_to_color: false      # depth (and the point cloud) in colour pixels and the colour frame (needs use_rgb and depth)
+    compressed: false                # true: each image on .../compressed only, not raw (JPEG; depth PNG). Not the point cloud
+    auto_exposure: true              # colour
+    exposure: 6000.0                 # us, colour, when auto_exposure is false
+    ir_auto_exposure: true           # infrared/depth (on a D405 colour and infrared share one sensor: colour's settings win)
+    ir_exposure: 8500.0              # us, when ir_auto_exposure is false
+    skip_frames: 10                  # dropped at the start while exposure settles
+    intrinsics_file: ""              # colour calibration in config/camera/intrinsics/ (or an absolute path); "": factory

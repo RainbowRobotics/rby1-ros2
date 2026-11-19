@@ -72,22 +72,6 @@
         <joint name="torso_5"/>
         <chain base_link="base" tip_link="link_torso_5"/>
     </group>
-    <group name="gripper_r">
-        <link name="gripper_right"/>
-        <link name="gripper_finger_r1"/>
-        <link name="gripper_finger_r2"/>
-        <joint name="gripper_right_joint"/>
-        <joint name="gripper_finger_r1_joint"/>
-        <joint name="gripper_finger_r2_joint"/>
-    </group>
-    <group name="gripper_l">
-        <link name="gripper_left"/>
-        <link name="gripper_finger_l1"/>
-        <link name="gripper_finger_l2"/>
-        <joint name="gripper_left_joint"/>
-        <joint name="gripper_finger_l1_joint"/>
-        <joint name="gripper_finger_l2_joint"/>
-    </group>
     <group name="both_arms">
         <group name="right_arm"/>
         <group name="left_arm"/>
@@ -170,17 +154,11 @@
         <joint name="torso_5" value="0"/>
     </group_state>
     <!--DISABLE COLLISIONS: By default it is assumed that any link of the robot could potentially come into collision with any other link in the robot. This tag disables collision checking between a specified pair of links. -->
-    <disable_collisions link1="FT_sensor_L" link2="gripper_finger_l1" reason="Never"/>
-    <disable_collisions link1="FT_sensor_L" link2="gripper_finger_l2" reason="Never"/>
-    <disable_collisions link1="FT_sensor_L" link2="gripper_left" reason="Adjacent"/>
     <disable_collisions link1="FT_sensor_L" link2="link_left_arm_2" reason="Never"/>
     <disable_collisions link1="FT_sensor_L" link2="link_left_arm_3" reason="Never"/>
     <disable_collisions link1="FT_sensor_L" link2="link_left_arm_4" reason="Never"/>
     <disable_collisions link1="FT_sensor_L" link2="link_left_arm_5" reason="Never"/>
     <disable_collisions link1="FT_sensor_L" link2="link_left_arm_6" reason="Adjacent"/>
-    <disable_collisions link1="FT_sensor_R" link2="gripper_finger_r1" reason="Never"/>
-    <disable_collisions link1="FT_sensor_R" link2="gripper_finger_r2" reason="Never"/>
-    <disable_collisions link1="FT_sensor_R" link2="gripper_right" reason="Adjacent"/>
     <disable_collisions link1="FT_sensor_R" link2="link_right_arm_2" reason="Never"/>
     <disable_collisions link1="FT_sensor_R" link2="link_right_arm_3" reason="Never"/>
     <disable_collisions link1="FT_sensor_R" link2="link_right_arm_4" reason="Never"/>
@@ -189,43 +167,6 @@
     <disable_collisions link1="base" link2="link_torso_0" reason="Adjacent"/>
     <disable_collisions link1="base" link2="wheel_l" reason="Adjacent"/>
     <disable_collisions link1="base" link2="wheel_r" reason="Adjacent"/>
-    <disable_collisions link1="gripper_finger_l1" link2="gripper_finger_l2" reason="Never"/>
-    <disable_collisions link1="gripper_finger_l1" link2="gripper_finger_r2" reason="Never"/>
-    <disable_collisions link1="gripper_finger_l1" link2="gripper_left" reason="Adjacent"/>
-    <disable_collisions link1="gripper_finger_l1" link2="link_left_arm_2" reason="Never"/>
-    <disable_collisions link1="gripper_finger_l1" link2="link_left_arm_3" reason="Never"/>
-    <disable_collisions link1="gripper_finger_l1" link2="link_left_arm_4" reason="Never"/>
-    <disable_collisions link1="gripper_finger_l1" link2="link_left_arm_5" reason="Never"/>
-    <disable_collisions link1="gripper_finger_l1" link2="link_left_arm_6" reason="Never"/>
-    <disable_collisions link1="gripper_finger_l2" link2="gripper_left" reason="Adjacent"/>
-    <disable_collisions link1="gripper_finger_l2" link2="link_left_arm_2" reason="Never"/>
-    <disable_collisions link1="gripper_finger_l2" link2="link_left_arm_3" reason="Never"/>
-    <disable_collisions link1="gripper_finger_l2" link2="link_left_arm_4" reason="Never"/>
-    <disable_collisions link1="gripper_finger_l2" link2="link_left_arm_5" reason="Never"/>
-    <disable_collisions link1="gripper_finger_l2" link2="link_left_arm_6" reason="Never"/>
-    <disable_collisions link1="gripper_finger_r1" link2="gripper_finger_r2" reason="Never"/>
-    <disable_collisions link1="gripper_finger_r1" link2="gripper_right" reason="Adjacent"/>
-    <disable_collisions link1="gripper_finger_r1" link2="link_right_arm_2" reason="Never"/>
-    <disable_collisions link1="gripper_finger_r1" link2="link_right_arm_3" reason="Never"/>
-    <disable_collisions link1="gripper_finger_r1" link2="link_right_arm_4" reason="Never"/>
-    <disable_collisions link1="gripper_finger_r1" link2="link_right_arm_5" reason="Never"/>
-    <disable_collisions link1="gripper_finger_r1" link2="link_right_arm_6" reason="Never"/>
-    <disable_collisions link1="gripper_finger_r2" link2="gripper_right" reason="Adjacent"/>
-    <disable_collisions link1="gripper_finger_r2" link2="link_right_arm_2" reason="Never"/>
-    <disable_collisions link1="gripper_finger_r2" link2="link_right_arm_3" reason="Never"/>
-    <disable_collisions link1="gripper_finger_r2" link2="link_right_arm_4" reason="Never"/>
-    <disable_collisions link1="gripper_finger_r2" link2="link_right_arm_5" reason="Never"/>
-    <disable_collisions link1="gripper_finger_r2" link2="link_right_arm_6" reason="Never"/>
-    <disable_collisions link1="gripper_left" link2="link_left_arm_2" reason="Never"/>
-    <disable_collisions link1="gripper_left" link2="link_left_arm_3" reason="Never"/>
-    <disable_collisions link1="gripper_left" link2="link_left_arm_4" reason="Never"/>
-    <disable_collisions link1="gripper_left" link2="link_left_arm_5" reason="Never"/>
-    <disable_collisions link1="gripper_left" link2="link_left_arm_6" reason="Never"/>
-    <disable_collisions link1="gripper_right" link2="link_right_arm_2" reason="Never"/>
-    <disable_collisions link1="gripper_right" link2="link_right_arm_3" reason="Never"/>
-    <disable_collisions link1="gripper_right" link2="link_right_arm_4" reason="Never"/>
-    <disable_collisions link1="gripper_right" link2="link_right_arm_5" reason="Never"/>
-    <disable_collisions link1="gripper_right" link2="link_right_arm_6" reason="Never"/>
     <disable_collisions link1="link_head_0" link2="link_head_1" reason="Adjacent"/>
     <disable_collisions link1="link_head_0" link2="link_head_2" reason="Never"/>
     <disable_collisions link1="link_head_0" link2="link_left_arm_0" reason="Never"/>

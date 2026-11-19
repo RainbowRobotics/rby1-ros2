@@ -12,7 +12,7 @@ Sequence:
   3. Wait for the action to complete and report the result.
 
 Run:
-  ros2 run rby1_examples zero_pose
+  ros2 run rby1_examples 06_zero_pose
 
 Actions used:
   - robot_joint  (Rby1JointCommand)
@@ -22,7 +22,7 @@ Services used:
   - robot_servo  (StateOnOff)
 
 Topics subscribed:
-  - joint_states/robot_state  (RobotState)
+  - robot_state  (rby1_msgs/RobotState)
 """
 import time
 import rclpy
@@ -31,6 +31,14 @@ from rclpy.node import Node
 from rby1_msgs.action import Rby1JointCommand
 from rby1_msgs.msg import JointCommand, RobotState
 from rby1_msgs.srv import StateOnOff
+
+# Values to change: edit these to adjust the example.
+ZERO_TORSO = [0.0] * 6        # rad, torso_0 .. torso_5
+ZERO_RIGHT_ARM = [0.0] * 7    # rad, right_arm_0 .. right_arm_6
+ZERO_LEFT_ARM = [0.0] * 7     # rad, left_arm_0 .. left_arm_6
+ZERO_HEAD = [0.0] * 2         # rad, head_0 .. head_1
+MINIMUM_TIME = 5.0            # s, the move takes at least this long
+GOAL_PRIORITY = 10
 
 class ZeroPoseExample(Node):
     def __init__(self):
@@ -118,7 +126,7 @@ class ZeroPoseExample(Node):
             goal_msg.head.position = head_pos
             goal_msg.head.minimum_time = minimum_time
 
-        goal_msg.priority = 10
+        goal_msg.priority = GOAL_PRIORITY
 
         self._action_client.wait_for_server()
         self.get_logger().info('Sending Zero Pose Goal...')
@@ -134,11 +142,11 @@ def main(args=None):
         return
 
     # 1. Zero pose values
-    torso_pos = [0.0] * 6
-    right_pos = [0.0] * 7
-    left_pos = [0.0] * 7
-    head_pos = [0.0] * 2
-    min_time = 5.0
+    torso_pos = ZERO_TORSO
+    right_pos = ZERO_RIGHT_ARM
+    left_pos = ZERO_LEFT_ARM
+    head_pos = ZERO_HEAD
+    min_time = MINIMUM_TIME
     
     future = action_client.send_goal(torso_pos, right_pos, left_pos, head_pos, min_time)
     rclpy.spin_until_future_complete(action_client, future)

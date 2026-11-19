@@ -14,7 +14,7 @@ Sequence:
   4. Disable gravity compensation (restore position-hold mode).
 
 Run:
-  ros2 run rby1_examples gravity_compensation
+  ros2 run rby1_examples 05_gravity_compensation
 
 Services used:
   - robot_power          (StateOnOff)
@@ -22,7 +22,7 @@ Services used:
   - gravity_compensation (GravityCompensation)
 
 Topics subscribed:
-  - joint_states/robot_state  (RobotState)
+  - robot_state  (rby1_msgs/RobotState)
 """
 import time
 import rclpy

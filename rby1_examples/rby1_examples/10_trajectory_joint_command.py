@@ -8,7 +8,8 @@ action client over a persistent command stream.
 Sequence (Phase 1 — Position Control):
   1. Ensure the robot is powered and enabled.
   2. Move whole body to Zero Pose.
-  3. Enable a persistent command stream via '/stream_control'.
+  3. Enable a persistent command stream via '/stream_control': the channels of the parts
+     the trajectory names (right_arm, left_arm, torso, head). A trajectory is refused when one is closed.
   4. Send a whole-body trajectory (Zero → Target) using FollowJointTrajectory.
   5. Disable stream, return to Zero Pose.
 
@@ -32,11 +33,46 @@ from rby1_msgs.msg import RobotState, JointCommand
 from rby1_msgs.srv import StateOnOff, SetTrajectoryImpedance
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 
+# Values to change: edit these to adjust the example.
+# The stream channels the trajectory needs: it names torso, arm and head joints. The base's (mobile) stays closed.
+STREAM_CHANNELS = 'right_arm, left_arm, torso, head'
+STREAM_HZ = 15.0                  # Hz, the stream rate; the trajectories have this many points per second
+# Zero pose, where the robot is moved before and after the phases
+ZERO_TORSO = [0.0] * 6            # rad, torso_0 .. torso_5
+ZERO_ARM = [0.0] * 7              # rad, each arm
+ZERO_HEAD = [0.0] * 2             # rad
+ZERO_MINIMUM_TIME = 3.0           # s, the move takes at least this long
+# The trajectory: from all joints at 0 to this target
+JOINT_NAMES = [f'torso_{i}' for i in range(6)] + \
+              [f'right_arm_{i}' for i in range(7)] + \
+              [f'left_arm_{i}' for i in range(7)] + \
+              [f'head_{i}' for i in range(2)]
+TARGET_TORSO = [0.0, 0.1, -0.2, 0.1, 0.0, 0.0]             # rad
+TARGET_RIGHT_ARM = [0.0, -0.5, 0.0, -1.57, 0.0, 0.0, 0.0]  # rad
+TARGET_LEFT_ARM = [0.0,  0.5, 0.0, -1.57, 0.0, 0.0, 0.0]   # rad
+TARGET_HEAD = [0.0, 0.0]                                   # rad
+TRAJECTORY_DURATION = 5.0                                  # s, in phases 1 and 2
+# Phase 2, impedance
+IMPEDANCE_PARTS = [False, True, True]  # impedance on for torso, right_arm, left_arm
+TORSO_STIFFNESS = [200.0] * 6          # N·m/rad
+RIGHT_ARM_STIFFNESS = [100.0] * 7      # N·m/rad
+LEFT_ARM_STIFFNESS = [100.0] * 7       # N·m/rad
+DAMPING_RATIO = 1.0
+TORQUE_LIMIT = 10.0                    # N·m, per joint
+# Phase 3, preemption and rejection
+SLOW_TRAJECTORY_DURATION = 8.0    # s, trajectory 1
+REJECT_TEST_AFTER = 1.0           # s after trajectory 1 starts, a joint command is sent that must be rejected
+REJECT_TEST_TORSO = [0.0] * 6     # rad, that joint command
+REJECT_TEST_MINIMUM_TIME = 2.0    # s, that joint command
+PREEMPT_AFTER = 1.0               # s after the reject test, trajectory 2 is sent
+PREEMPT_START_RATIO = 0.25        # trajectory 2 starts from this far along trajectory 1 (0..1)
+PREEMPT_DURATION = 3.0            # s, trajectory 2, back to all joints at 0
+
 
 class TrajectoryJointCommand(Node):
     def __init__(self):
         super().__init__('trajectory_joint_command', namespace='rby1')
-        self.stream_hz =  15.0
+        self.stream_hz =  STREAM_HZ
         self._stream_client = ActionClient(self, FollowJointTrajectory, 'follow_joint_trajectory')
         self._zero_pose_client = ActionClient(self, Rby1JointCommand, 'robot_joint')
         self.power_client = self.create_client(StateOnOff, 'robot_power')
@@ -115,16 +151,17 @@ class TrajectoryJointCommand(Node):
         try:
             req = StateOnOff.Request()
             req.state = enable
-            req.parameters = ""
+            req.parameters = STREAM_CHANNELS
             req.value = value
-            self.get_logger().info(f"Calling stream_control: state={enable}, value={value}...")
+            self.get_logger().info(f"Calling stream_control: state={enable}, channels '{STREAM_CHANNELS}'...")
             self.stream_control_client.wait_for_service(timeout_sec=1.0)
             future = self.stream_control_client.call_async(req)
             rclpy.spin_until_future_complete(self, future, timeout_sec=2.0)
             if future.done():
                 res = future.result()
                 if res and res.success:
-                    self.get_logger().info(f"Stream Control successfully {'enabled' if enable else 'disabled'}.")
+                    self.get_logger().info(f"Stream Control successfully {'enabled' if enable else 'disabled'}: "
+                                           f"{res.message}")
                     return True
                 else:
                     self.get_logger().error(f"Failed to toggle stream control: {res.message if res else 'No response'}")
@@ -186,12 +223,12 @@ class TrajectoryJointCommand(Node):
         for part in ['torso', 'right_arm', 'left_arm', 'head']:
             cmd = JointCommand()
             if part == 'torso':
-                cmd.position = [0.0] * 6
+                cmd.position = ZERO_TORSO
             elif part == 'head':
-                cmd.position = [0.0] * 2
+                cmd.position = ZERO_HEAD
             elif part in ['right_arm', 'left_arm']:
-                cmd.position = [0.0] * 7
-            cmd.minimum_time = 3.0
+                cmd.position = ZERO_ARM
+            cmd.minimum_time = ZERO_MINIMUM_TIME
             setattr(goal_msg, part, cmd)
 
         self._zero_pose_client.wait_for_server()
@@ -270,15 +307,12 @@ def main(args=None):
     action_client.get_logger().info(f"Using stream_hz = {stream_hz} (trajectory waypoint density aligned to stream rate)")
 
     # --- Common trajectory setup ---
-    joint_names = [f'torso_{i}' for i in range(6)] + \
-                  [f'right_arm_{i}' for i in range(7)] + \
-                  [f'left_arm_{i}' for i in range(7)] + \
-                  [f'head_{i}' for i in range(2)]
+    joint_names = JOINT_NAMES
 
-    target_torso = [0.0, 0.1, -0.2, 0.1, 0.0, 0.0]
-    target_right = [0.0, -0.5, 0.0, -1.57, 0.0, 0.0, 0.0]
-    target_left  = [0.0,  0.5, 0.0, -1.57, 0.0, 0.0, 0.0]
-    target_head  = [0.0, 0.0]
+    target_torso = TARGET_TORSO
+    target_right = TARGET_RIGHT_ARM
+    target_left  = TARGET_LEFT_ARM
+    target_head  = TARGET_HEAD
 
     full_target = target_torso + target_right + target_left + target_head
     full_start  = [0.0] * len(full_target)
@@ -299,7 +333,7 @@ def main(args=None):
         action_client.get_logger().error('Failed to establish zero pose.')
         return
 
-    traj_pos = build_trajectory(joint_names, full_start, full_target, num_points=int(5.0 * stream_hz), total_sec=5.0)
+    traj_pos = build_trajectory(joint_names, full_start, full_target, num_points=int(TRAJECTORY_DURATION * stream_hz), total_sec=TRAJECTORY_DURATION)
     run_trajectory_phase(action_client, 'PositionCtrl', traj_pos)
 
     action_client.get_logger().info('[Phase 1] Returning to Zero Pose...')
@@ -314,19 +348,19 @@ def main(args=None):
     action_client.get_logger().info('=' * 50)
 
     # Stiffness arrays per part
-    torso_stiffness = [200.0] * 6
-    right_arm_stiffness = [100.0] * 7
-    left_arm_stiffness = [100.0] * 7
+    torso_stiffness = TORSO_STIFFNESS
+    right_arm_stiffness = RIGHT_ARM_STIFFNESS
+    left_arm_stiffness = LEFT_ARM_STIFFNESS
 
-    if not action_client.set_impedance([False, True, True],
+    if not action_client.set_impedance(IMPEDANCE_PARTS,
                                       torso_stiffness=torso_stiffness,
                                       right_arm_stiffness=right_arm_stiffness,
                                       left_arm_stiffness=left_arm_stiffness,
-                                      damping_ratio=1.0,
-                                      torque_limit=10.0):
+                                      damping_ratio=DAMPING_RATIO,
+                                      torque_limit=TORQUE_LIMIT):
         action_client.get_logger().error('[Phase 2] Failed to enable impedance mode. Skipping.')
     else:
-        traj_imp = build_trajectory(joint_names, full_start, full_target, num_points=int(5.0 * stream_hz), total_sec=5.0)
+        traj_imp = build_trajectory(joint_names, full_start, full_target, num_points=int(TRAJECTORY_DURATION * stream_hz), total_sec=TRAJECTORY_DURATION)
         run_trajectory_phase(action_client, 'ImpedanceCtrl', traj_imp)
 
         # Disable impedance before returning to zero (zero uses robot_joint, not follow_joint_trajectory,
@@ -347,7 +381,7 @@ def main(args=None):
         action_client.get_logger().error('[Phase 3] Failed to enable stream. Skipping phase.')
     else:
         # Build Trajectory 1 (Slow motion, 8 seconds duration)
-        traj_slow = build_trajectory(joint_names, full_start, full_target, num_points=int(8.0 * stream_hz), total_sec=8.0)
+        traj_slow = build_trajectory(joint_names, full_start, full_target, num_points=int(SLOW_TRAJECTORY_DURATION * stream_hz), total_sec=SLOW_TRAJECTORY_DURATION)
         
         action_client.get_logger().info('[Phase 3] Sending Trajectory 1 (Slow Zero -> Target, 8s)...')
         future1 = action_client.send_stream_goal(traj_slow)
@@ -358,15 +392,15 @@ def main(args=None):
             action_client.get_logger().error('[Phase 3] Trajectory 1 was rejected.')
         else:
             # Sleep a bit
-            action_client.spin_sleep(1.0)
+            action_client.spin_sleep(REJECT_TEST_AFTER)
             
             # TEST: Try sending a single joint command while the trajectory is running.
             # This should be REJECTED by the driver action server.
             action_client.get_logger().info('[Phase 3] TEST: Sending Rby1JointCommand during active trajectory (expecting REJECT)...')
             test_goal = Rby1JointCommand.Goal()
             test_goal.torso = JointCommand()
-            test_goal.torso.position = [0.0] * 6
-            test_goal.torso.minimum_time = 2.0
+            test_goal.torso.position = REJECT_TEST_TORSO
+            test_goal.torso.minimum_time = REJECT_TEST_MINIMUM_TIME
             
             action_client._zero_pose_client.wait_for_server()
             test_future = action_client._zero_pose_client.send_goal_async(test_goal)
@@ -379,11 +413,11 @@ def main(args=None):
                 action_client.get_logger().error('[Phase 3] FAILURE: Rby1JointCommand was accepted when trajectory was running.')
             
             # Sleep the remaining time for the 2s interval
-            action_client.spin_sleep(1.0)
-            
+            action_client.spin_sleep(PREEMPT_AFTER)
+
             # Send Trajectory 2 to preempt it (moves back to zero in 3s)
-            est_midpoint = [(s + (t - s) * 0.25) for s, t in zip(full_start, full_target)]
-            traj_preempt = build_trajectory(joint_names, est_midpoint, full_start, num_points=int(3.0 * stream_hz), total_sec=3.0)
+            est_midpoint = [(s + (t - s) * PREEMPT_START_RATIO) for s, t in zip(full_start, full_target)]
+            traj_preempt = build_trajectory(joint_names, est_midpoint, full_start, num_points=int(PREEMPT_DURATION * stream_hz), total_sec=PREEMPT_DURATION)
             
             action_client.get_logger().info('[Phase 3] Sending Trajectory 2 (Preempting Trajectory 1, moving back to Zero)...')
             future2 = action_client.send_stream_goal(traj_preempt)

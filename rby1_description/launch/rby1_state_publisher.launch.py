@@ -11,13 +11,13 @@ def generate_launch_description():
     # declare launch arguments
     arg_model_name = DeclareLaunchArgument(
         "model", 
-        default_value="rby1a", 
-        description="Model name folder (e.g., rby1a)"
+        default_value="a", 
+        description="Robot model: a or m (urdf/rby1<model>/)"
     )
     arg_model_version = DeclareLaunchArgument(
         "version", 
-        default_value="1.0", 
-        description="Model version string (e.g., 1.0)"
+        default_value="1_0", 
+        description="Model version with an underscore: 1_0, 1_1, 1_2 (1_3 on m)"
     )
     # set urdf path
     robot_description = Command([

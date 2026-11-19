@@ -1,0 +1,13 @@
+# The ready pose of rby1_moveit_executor: on start it takes the parts that are straight
+# here, in one move. Joint angles in rad, in joint order (right_arm_0 .., torso_0 ..).
+# Edit and start the launch again; another file: ready_pose:=/path/to/file.yaml
+#
+# A part counts as straight -- and is moved -- when its elbow (arm joint 3) is within
+# straight_elbow (0.3 rad) of 0, or the knee (torso joint 2) is under half its angle
+# here. A torso of all zeros is therefore never moved.
+rby1_target_executor:
+  ros__parameters:
+    ready:
+      right_arm: [0.0, -0.5, 0.0, -1.57, 0.0, 0.0, 0.0]   # elbow bent 90 deg, arm forward
+      left_arm: [0.0, 0.5, 0.0, -1.57, 0.0, 0.0, 0.0]
+      torso: [0.0, 0.5, -1.0, 0.5, 0.0, 0.0]              # knee bent ~57 deg, chest level (as rby1_cumotion's)

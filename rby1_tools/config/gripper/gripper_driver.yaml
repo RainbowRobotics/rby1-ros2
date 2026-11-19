@@ -1,0 +1,22 @@
+# gripper_driver: the RB-Y1 gripper on the hands (gripper.launch.py), virtual or real.
+# Positions are 0 (closed) .. 1000 (fully open, max_opening).
+gripper_driver:
+  ros__parameters:
+    virtual: true                    # true: nothing moves, the state follows the commands; false: the gripper itself (gripper.launch.py virtual:= overrides)
+    hands: ["right", "left"]         # /rby1/<hand>_gripper/grasp, /command and /state for each
+    topic_prefix: /rby1
+    max_opening: 0.05                # m, each finger, fully open (the URDF's finger travel; real: what the homing finds)
+    open_position: 1000              # 0..1000: where grasp false opens to
+    initial_position: 1000           # 0..1000: where the fingers start (real: moved there after homing)
+    rate: 50.0                       # Hz, state messages (real: also the control cycle)
+    speed: 0.05                      # m/s, each finger (virtual only; the URDF's finger velocity)
+    # The real gripper (virtual: false): on the PC its USB is plugged into (the UPC), built where the SDK is.
+    device: /dev/rby1_gripper        # the SDK's gripper device
+    tool_flange_voltage: 12          # the motors' supply: switched on at start through the RB-Y1 driver's tool_flange_power (both hands); 0: leave it
+    right_id: 0                      # Dynamixel id of each hand's motor
+    left_id: 1
+    homing: true                     # at start, run each motor to both ends to learn its travel (the fingers move!)
+    homing_current: 0.5              # A, pushing toward an end while homing (SDK example 35 v0.10.1: 0.5; 0.3 did not open the fingers)
+    hold_current: 5.0                # the current limit of the position control (SDK example 35: 5)
+    inverted: false                  # true if a motor's encoder rises when the gripper closes (example 35: GRIPPER_DIRECTION)
+    joint_states_topic: ""           # the finger joints' states for the gripper model; gripper.launch.py sets it (RB-Y1 v1.3: "/joint_states")

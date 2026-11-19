@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <package format="3">
   <name>rby1_description</name>
-  <version>0.1.0</version>
+  <version>1.0.0</version>
   <description>Robot description package for RBY1</description>
   
   <maintainer email="iaunoh@rainbow-robotics.com">Donghyeon Noh</maintainer>
@@ -14,6 +14,8 @@
 
   <exec_depend>xacro</exec_depend>
   <exec_depend>robot_state_publisher</exec_depend>
+  <exec_depend>joint_state_publisher_gui</exec_depend>
+  <exec_depend>rviz2</exec_depend>
   <exec_depend>rclpy</exec_depend>
 
   <export>

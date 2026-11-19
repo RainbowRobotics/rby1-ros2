@@ -1,0 +1,86 @@
+solid camera_box
+  facet normal 1 0 0
+    outer loop
+      vertex 0.0150 -0.0450 -0.0200
+      vertex 0.0150 0.0450 -0.0200
+      vertex 0.0150 0.0450 0.0200
+    endloop
+  endfacet
+  facet normal 1 0 0
+    outer loop
+      vertex 0.0150 -0.0450 -0.0200
+      vertex 0.0150 0.0450 0.0200
+      vertex 0.0150 -0.0450 0.0200
+    endloop
+  endfacet
+  facet normal -1 0 0
+    outer loop
+      vertex -0.0150 -0.0450 -0.0200
+      vertex -0.0150 -0.0450 0.0200
+      vertex -0.0150 0.0450 0.0200
+    endloop
+  endfacet
+  facet normal -1 0 0
+    outer loop
+      vertex -0.0150 -0.0450 -0.0200
+      vertex -0.0150 0.0450 0.0200
+      vertex -0.0150 0.0450 -0.0200
+    endloop
+  endfacet
+  facet normal 0 1 0
+    outer loop
+      vertex -0.0150 0.0450 -0.0200
+      vertex -0.0150 0.0450 0.0200
+      vertex 0.0150 0.0450 0.0200
+    endloop
+  endfacet
+  facet normal 0 1 0
+    outer loop
+      vertex -0.0150 0.0450 -0.0200
+      vertex 0.0150 0.0450 0.0200
+      vertex 0.0150 0.0450 -0.0200
+    endloop
+  endfacet
+  facet normal 0 -1 0
+    outer loop
+      vertex -0.0150 -0.0450 -0.0200
+      vertex 0.0150 -0.0450 -0.0200
+      vertex 0.0150 -0.0450 0.0200
+    endloop
+  endfacet
+  facet normal 0 -1 0
+    outer loop
+      vertex -0.0150 -0.0450 -0.0200
+      vertex 0.0150 -0.0450 0.0200
+      vertex -0.0150 -0.0450 0.0200
+    endloop
+  endfacet
+  facet normal 0 0 1
+    outer loop
+      vertex -0.0150 -0.0450 0.0200
+      vertex 0.0150 -0.0450 0.0200
+      vertex 0.0150 0.0450 0.0200
+    endloop
+  endfacet
+  facet normal 0 0 1
+    outer loop
+      vertex -0.0150 -0.0450 0.0200
+      vertex 0.0150 0.0450 0.0200
+      vertex -0.0150 0.0450 0.0200
+    endloop
+  endfacet
+  facet normal 0 0 -1
+    outer loop
+      vertex -0.0150 -0.0450 -0.0200
+      vertex -0.0150 0.0450 -0.0200
+      vertex 0.0150 0.0450 -0.0200
+    endloop
+  endfacet
+  facet normal 0 0 -1
+    outer loop
+      vertex -0.0150 -0.0450 -0.0200
+      vertex 0.0150 0.0450 -0.0200
+      vertex 0.0150 -0.0450 -0.0200
+    endloop
+  endfacet
+endsolid camera_box

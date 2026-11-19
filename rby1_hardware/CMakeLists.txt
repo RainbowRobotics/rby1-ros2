@@ -22,11 +22,14 @@ find_package(rby1_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 
-# SDK Path Resolution
-if(DEFINED ENV{RBY1_SDK_PATH})
-  set(RBY1_SDK_PATH $ENV{RBY1_SDK_PATH})
-else()
-  set(RBY1_SDK_PATH "/home/jsm/sdk/rby1-sdk")
+# The RB-Y1 SDK (https://github.com/RainbowRobotics/rby1-sdk), built from source:
+# RBY1_SDK_PATH points at its source tree, with its build in <RBY1_SDK_PATH>/build.
+if(NOT DEFINED ENV{RBY1_SDK_PATH})
+  message(FATAL_ERROR "RBY1_SDK_PATH is not set: export RBY1_SDK_PATH=<path to rby1-sdk> (see README 1-2)")
+endif()
+set(RBY1_SDK_PATH $ENV{RBY1_SDK_PATH})
+if(NOT EXISTS "${RBY1_SDK_PATH}/include/rby1-sdk/robot.h" OR NOT EXISTS "${RBY1_SDK_PATH}/build/src")
+  message(FATAL_ERROR "RBY1_SDK_PATH=${RBY1_SDK_PATH} has no include/rby1-sdk/robot.h or build/src: build the SDK there first (see README 1-2)")
 endif()
 
 # Include directories
@@ -72,6 +75,11 @@ target_include_directories(rby1_hardware PUBLIC
 install(
   DIRECTORY include/
   DESTINATION include
+)
+
+install(
+  DIRECTORY launch
+  DESTINATION share/${PROJECT_NAME}
 )
 
 install(

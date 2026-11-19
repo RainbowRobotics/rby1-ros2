@@ -1,0 +1,16 @@
+# Where a camera can sit on the robot, by name: camera.launch.py mount:=<name> publishes
+# <parent> -> <camera_name>_link (x forward, y left, z up) as a static TF, and
+# <camera_name>_link -> <camera_name>_optical_frame (the images' frame). mount:=none puts the
+# camera on no link (a camera on the desk, say). AprilTag poses reach the robot's frames
+# through this transform: measure yours.
+#
+# Add one per place a camera goes, with values measured on the robot:
+#   <name>:
+#     parent: <robot link>
+#     xyz: [x, y, z]           # m, in parent
+#     rpy: [roll, pitch, yaw]  # rad, in parent
+
+head_default:                  # the head mount the RB-Y1 URDF leaves commented out ("head_mount")
+  parent: link_head_2
+  xyz: [0.022, 0.0, 0.04]      # 22 mm forward, 40 mm up
+  rpy: [0.0, 0.0, 0.0]

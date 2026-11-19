@@ -2,21 +2,22 @@
 """
 Joint State Monitoring Example
 ==============================
-A diagnostic node that subscribes to the per-component JointState topics 
-published by the RBY1 driver and renders a real-time console dashboard at 10 Hz.
+A diagnostic node that subscribes to the driver's per-part joint states
+(`joint_states`) and renders a real-time console dashboard at 10 Hz.
 
 Run:
-  ros2 run rby1_examples 05_joint_state_monitoring
+  ros2 run rby1_examples 04_joint_state_monitoring
 
 Topics subscribed:
-  - joint_states/torso      (sensor_msgs/JointState)
-  - joint_states/right_arm  (sensor_msgs/JointState)
-  - joint_states/left_arm   (sensor_msgs/JointState)
-  - joint_states/head       (sensor_msgs/JointState)
+  - joint_states  (rby1_msgs/PartJointStates: torso, right_arm, left_arm, head,
+                   each a sensor_msgs/JointState)
 """
 import rclpy
+from rclpy.executors import ExternalShutdownException
+from rclpy.signals import SignalHandlerOptions
 from rclpy.node import Node
-from sensor_msgs.msg import JointState
+from rby1_msgs.msg import PartJointStates
+
 
 class JointStateMonitoring(Node):
     def __init__(self):
@@ -29,28 +30,17 @@ class JointStateMonitoring(Node):
         self.left_arm_msg = None
         self.head_msg = None
 
-        # Subscribe to standard JointState topics for different components
-        self.torso_sub = self.create_subscription(
-            JointState, 'joint_states/torso', lambda msg: self.joint_state_callback(msg, 'torso'), 10)
-        self.right_arm_sub = self.create_subscription(
-            JointState, 'joint_states/right_arm', lambda msg: self.joint_state_callback(msg, 'right_arm'), 10)
-        self.left_arm_sub = self.create_subscription(
-            JointState, 'joint_states/left_arm', lambda msg: self.joint_state_callback(msg, 'left_arm'), 10)
-        self.head_sub = self.create_subscription(
-            JointState, 'joint_states/head', lambda msg: self.joint_state_callback(msg, 'head'), 10)
+        self.part_state_sub = self.create_subscription(
+            PartJointStates, 'joint_states', self.part_state_callback, 10)
 
         # Timer for 10 Hz dynamic console updates
         self.timer = self.create_timer(0.1, self.render_dashboard)
 
-    def joint_state_callback(self, msg, part_name):
-        if part_name == 'torso':
-            self.torso_msg = msg
-        elif part_name == 'right_arm':
-            self.right_arm_msg = msg
-        elif part_name == 'left_arm':
-            self.left_arm_msg = msg
-        elif part_name == 'head':
-            self.head_msg = msg
+    def part_state_callback(self, msg):
+        self.torso_msg = msg.torso
+        self.right_arm_msg = msg.right_arm
+        self.left_arm_msg = msg.left_arm
+        self.head_msg = msg.head
 
     def render_dashboard(self):
         # Clear screen and return cursor to top-left
@@ -79,18 +69,21 @@ class JointStateMonitoring(Node):
         print("=" * 65)
 
 def main(args=None):
-    rclpy.init(args=args)
+    # Ctrl+C is a plain KeyboardInterrupt: rclpy's own handler can shut the context down in the
+    # middle of a spin, which ends in an RCLError instead of a clean exit.
+    rclpy.init(args=args, signal_handler_options=SignalHandlerOptions.NO)
     monitor = JointStateMonitoring()
     
     try:
         rclpy.spin(monitor)
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, ExternalShutdownException):
         pass
     finally:
         # Clear screen on exit
         print("\033[H\033[J", end="", flush=True)
         monitor.destroy_node()
-        rclpy.shutdown()
+        if rclpy.ok():
+            rclpy.shutdown()
 
 if __name__ == '__main__':
     main()

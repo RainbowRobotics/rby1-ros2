@@ -45,6 +45,8 @@ public:
   virtual bool wait_for_control_ready(long timeout_ms) = 0;
   virtual bool disable_control_manager() = 0;
   virtual bool cancel_control() = 0;
+  // No control is running on the robot any more (a cancel ends asynchronously).
+  virtual bool is_control_idle() { return true; }
   
   virtual rb::RobotInfo get_robot_info() const = 0;
   virtual void get_joint_states(std::vector<double>& positions, std::vector<double>& velocities, std::vector<double>& torques) = 0;
@@ -129,6 +131,10 @@ public:
 
   bool cancel_control() override {
     return robot_ && robot_->CancelControl();
+  }
+  bool is_control_idle() override {
+    return !robot_ || robot_->GetControlManagerState().control_state ==
+                          rb::ControlManagerState::ControlState::kIdle;
   }
 
   rb::RobotInfo get_robot_info() const override {
@@ -354,7 +360,9 @@ private:
   std::vector<double> hw_velocities_;
   
   // Mapping from URDF joint index to SDK index
-  std::vector<unsigned int> joint_name_to_sdk_index_;
+  // SDK joint index of each URDF joint; -1 for one the robot has no joint for (the
+  // gripper fingers of v1.3), which is then neither read from nor sent to the robot.
+  std::vector<int> joint_name_to_sdk_index_;
 
   // ROS 2 node, subscribers, and service client
   std::shared_ptr<rclcpp::Node> node_;
@@ -390,6 +398,9 @@ private:
   bool has_pending_command_{false};
 
   void io_worker_loop();
+  void release_hardware_control();
+  // on_activate after the control right was claimed: give it back, so the driver takes commands again.
+  hardware_interface::CallbackReturn fail_activation();
   void joint_state_callback(const sensor_msgs::msg::JointState::SharedPtr msg);
   void cmd_vel_callback(const geometry_msgs::msg::Twist::SharedPtr msg);
 };

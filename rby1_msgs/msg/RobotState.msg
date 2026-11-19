@@ -11,9 +11,9 @@ int32 control_manager_state
 # Joint brake engagement status for all components
 BrakeState brake_state
 
-# Connection status of tool flanges (index 0: left flange, index 1: right flange)
-# True if connected and receiving state updates, False otherwise
-bool[] tool_flange_state
+# Tool flanges: connection, output voltage, switch (their IMU and force/torque are topics)
+ToolFlange tool_flange_left
+ToolFlange tool_flange_right
 
 # Emergency Stop (EMO) button pressed status (True if pressed/active, False if released)
 bool emo_state false

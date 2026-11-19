@@ -1,0 +1,90 @@
+# RViz for the camera and the markers found in its images (camera.launch.py rviz:=true).
+#   Camera image -- /camera/image_raw as it comes from the camera
+#   Marker view  -- the same image with the TF frames drawn over it (the marker's axes sit on the marker)
+#   3D           -- camera_link, the markers (target_marker_<id>, tag36h11:<id>) and /rby1/marker/pose
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+    Splitter Ratio: 0.5
+    Tree Height: 300
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Class: rviz_default_plugins/Grid
+      Name: Grid
+      Enabled: true
+      Cell Size: 0.1
+      Plane Cell Count: 20
+      Reference Frame: <Fixed Frame>
+    - Class: rviz_default_plugins/TF
+      Name: TF
+      Enabled: true
+      Marker Scale: 0.3
+      Show Names: true
+      Show Axes: true
+      Show Arrows: false
+      Frame Timeout: 1
+    - Class: rviz_default_plugins/Pose
+      Name: Target marker
+      Enabled: true
+      Shape: Axes
+      Axes Length: 0.1
+      Axes Radius: 0.01
+      Topic:
+        Value: /rby1/marker/pose
+        Depth: 5
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Durability Policy: Volatile
+    - Class: rviz_default_plugins/Image
+      Name: Camera image
+      Enabled: true
+      Normalize Range: true
+      Topic:
+        Value: /camera/rgb/raw
+        Depth: 5
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Durability Policy: Volatile
+    - Class: rviz_default_plugins/Camera
+      Name: Marker view
+      Enabled: true
+      Image Rendering: background and overlay
+      Overlay Alpha: 0.5
+      Zoom Factor: 1
+      Topic:
+        Value: /camera/rgb/raw
+        Depth: 5
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Durability Policy: Volatile
+      Visibility:
+        Grid: false
+        TF: true
+        Target marker: true
+        Camera image: false
+        Value: true
+  Global Options:
+    Background Color: 48; 48; 48
+    Fixed Frame: camera_link
+    Frame Rate: 30
+  Tools:
+    - Class: rviz_default_plugins/Interact
+    - Class: rviz_default_plugins/MoveCamera
+  Value: true
+  Views:
+    Current:
+      Class: rviz_default_plugins/Orbit
+      Name: Current View
+      Distance: 1.2
+      Pitch: 0.4
+      Yaw: 3.6
+      Focal Point:
+        X: 0.3
+        Y: 0
+        Z: 0
+      Target Frame: <Fixed Frame>
+      Value: Orbit (rviz)
+Window Geometry:
+  Height: 900
+  Width: 1500

@@ -6,12 +6,19 @@ Demonstrates concurrent dual stream control. Activates stream control,
 streams torso, arms, and head joint positions via StreamJoint action,
 and concurrently publishes velocity commands to /cmd_vel to move the mobile base.
 
+Stream channels: stream_control opens the channels named in its `parameters` --
+right_arm, left_arm, torso, head, mobile; empty or "all" is every one. This example commands them all, so it opens them all (STREAM_CHANNELS). A
+command for a part whose channel is closed is refused, and the driver's answer says
+which channels it opened. A channel nobody commands within 60 s of opening it is
+closed again by the driver.
+
 Run:
   ros2 run rby1_examples 13_stream_command
 """
 import time
 import math
 import rclpy
+from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 from rclpy.action import ActionClient
 from rby1_msgs.action import Rby1JointCommand, StreamJoint
@@ -19,10 +26,35 @@ from rby1_msgs.msg import JointCommand, RobotState, StreamJointCommand
 from rby1_msgs.srv import StateOnOff
 from geometry_msgs.msg import Twist
 
+# Values to change: edit these to adjust the example.
+# The stream channels this example commands: the arms, torso and head by stream_joint, the base by cmd_vel.
+STREAM_CHANNELS = 'right_arm, left_arm, torso, head, mobile'
+STREAM_HZ = 30.0                                         # Hz, joint commands streamed per second
+# Zero pose: the robot is moved there first, and the stream goes between it and the ready pose
+ZERO_TORSO = [0.0] * 6                                   # rad, torso_0 .. torso_5
+ZERO_ARM = [0.0] * 7                                     # rad, each arm
+ZERO_HEAD = [0.0] * 2                                    # rad
+ZERO_MINIMUM_TIME = 3.0                                  # s, the first move takes at least this long
+READY_TORSO = [0.0] * 6                                  # rad
+READY_RIGHT_ARM = [0.0, -0.5, 0.0, -1.0, 0.0, 0.0, 0.0]  # rad
+READY_LEFT_ARM = [0.0, 0.5, 0.0, -1.0, 0.0, 0.0, 0.0]    # rad
+READY_HEAD = [0.0, 0.0]                                  # rad
+CYCLES = 3                                               # zero -> ready -> zero, this many times
+MOVE_DURATION = 3.0                                      # s, zero to ready and ready to zero
+HOLD_DURATION = 1.0                                      # s, at the ready pose and at the zero pose
+# Mobile base, driven by cmd_vel while the joints stream
+CMD_VEL_HZ = 10.0                                        # Hz
+BASE_CYCLE_TIME = 5.0                                    # s, forward, stop, backward, stop
+BASE_FORWARD_END = 1.5                                   # s into the cycle, forward until then
+BASE_PAUSE_END = 2.5                                     # s into the cycle, stopped until then
+BASE_BACKWARD_END = 4.0                                  # s into the cycle, backward until then
+BASE_FORWARD_SPEED = 0.15                                # m/s
+BASE_BACKWARD_SPEED = -0.15                              # m/s
+
 class StreamCommand(Node):
     def __init__(self):
         super().__init__('stream_command', namespace='rby1')
-        self.stream_hz = 30.0
+        self.stream_hz = STREAM_HZ
         
         # ROS 2 publishers, clients and action clients
         self.cmd_vel_pub = self.create_publisher(Twist, 'cmd_vel', 10)
@@ -40,15 +72,15 @@ class StreamCommand(Node):
         self.mb_thread = None
 
         # Build joint ready/zero pose values
-        self.zero_torso = [0.0] * 6
-        self.zero_right = [0.0] * 7
-        self.zero_left  = [0.0] * 7
-        self.zero_head  = [0.0] * 2
+        self.zero_torso = ZERO_TORSO
+        self.zero_right = ZERO_ARM
+        self.zero_left  = ZERO_ARM
+        self.zero_head  = ZERO_HEAD
 
-        self.ready_torso = [0.0] * 6
-        self.ready_right = [0.0, -0.5, 0.0, -1.0, 0.0, 0.0, 0.0]
-        self.ready_left  = [0.0, 0.5, 0.0, -1.0, 0.0, 0.0, 0.0]
-        self.ready_head  = [0.0, 0.0]
+        self.ready_torso = READY_TORSO
+        self.ready_right = READY_RIGHT_ARM
+        self.ready_left  = READY_LEFT_ARM
+        self.ready_head  = READY_HEAD
 
     def state_callback(self, msg):
         self.control_state = msg.control_manager_state
@@ -78,20 +110,20 @@ class StreamCommand(Node):
         # 1.5 - 2.5s: Stop (0.0 m/s)
         # 2.5 - 4.0s: Backward (-0.15 m/s)
         # 4.0 - 5.0s: Stop (0.0 m/s)
-        hz = 10.0
+        hz = CMD_VEL_HZ
         dt = 1.0 / hz
         start_time = self.get_clock().now()
         while rclpy.ok() and self.mb_running:
             elapsed = (self.get_clock().now() - start_time).nanoseconds / 1e9
-            relative_t = elapsed % 5.0
-            
+            relative_t = elapsed % BASE_CYCLE_TIME
+
             twist_msg = Twist()
-            if relative_t < 1.5:
-                twist_msg.linear.x = 0.15
-            elif 1.5 <= relative_t < 2.5:
+            if relative_t < BASE_FORWARD_END:
+                twist_msg.linear.x = BASE_FORWARD_SPEED
+            elif BASE_FORWARD_END <= relative_t < BASE_PAUSE_END:
                 twist_msg.linear.x = 0.0
-            elif 2.5 <= relative_t < 4.0:
-                twist_msg.linear.x = -0.15
+            elif BASE_PAUSE_END <= relative_t < BASE_BACKWARD_END:
+                twist_msg.linear.x = BASE_BACKWARD_SPEED
             else:
                 twist_msg.linear.x = 0.0
                 
@@ -183,12 +215,12 @@ class StreamCommand(Node):
         for part in ['torso', 'right_arm', 'left_arm', 'head']:
             cmd = JointCommand()
             if part == 'torso':
-                cmd.position = [0.0] * 6
+                cmd.position = ZERO_TORSO
             elif part == 'head':
-                cmd.position = [0.0] * 2
+                cmd.position = ZERO_HEAD
             elif part in ['right_arm', 'left_arm']:
-                cmd.position = [0.0] * 7
-            cmd.minimum_time = 3.0
+                cmd.position = ZERO_ARM
+            cmd.minimum_time = ZERO_MINIMUM_TIME
             setattr(goal_msg, part, cmd)
 
         self.joint_client.wait_for_server()
@@ -213,14 +245,16 @@ class StreamCommand(Node):
         try:
             req = StateOnOff.Request()
             req.state = enable
-            self.get_logger().info(f"Calling stream_control: state={enable}...")
+            req.parameters = STREAM_CHANNELS
+            self.get_logger().info(f"Calling stream_control: state={enable}, channels '{STREAM_CHANNELS}'...")
             self.stream_control_client.wait_for_service(timeout_sec=1.0)
             future = self.stream_control_client.call_async(req)
             rclpy.spin_until_future_complete(self, future, timeout_sec=2.0)
             if future.done():
                 res = future.result()
                 if res and res.success:
-                    self.get_logger().info(f"Stream Control successfully {'enabled' if enable else 'disabled'}.")
+                    self.get_logger().info(f"Stream Control successfully {'enabled' if enable else 'disabled'}: "
+                                           f"{res.message}")
                     return True
                 else:
                     self.get_logger().error(f"Failed to toggle stream control: {res.message if res else 'No response'}")
@@ -270,14 +304,14 @@ def main(args=None):
                 break
 
             cycle += 1
-            if cycle > 3:
+            if cycle > CYCLES:
                 break
             node.get_logger().info(f'\n==========================================')
             node.get_logger().info(f' Cycle {cycle} - Step 1: Zero Pose -> Ready Pose (3.0s)')
             node.get_logger().info(f'==========================================')
 
             # Zero -> Ready
-            duration = 3.0
+            duration = MOVE_DURATION
             num_points = int(duration * node.stream_hz)
             for i in range(1, num_points + 1):
                 if node.robot_stream_state is False or not rclpy.ok():
@@ -293,7 +327,7 @@ def main(args=None):
 
             # Ready Pose Hold
             node.get_logger().info(f' Cycle {cycle} - Step 2: Holding Ready Pose (1.0s)')
-            duration = 1.0
+            duration = HOLD_DURATION
             num_points = int(duration * node.stream_hz)
             for i in range(1, num_points + 1):
                 if node.robot_stream_state is False or not rclpy.ok():
@@ -303,7 +337,7 @@ def main(args=None):
 
             # Ready -> Zero
             node.get_logger().info(f' Cycle {cycle} - Step 3: Ready Pose -> Zero Pose (3.0s)')
-            duration = 3.0
+            duration = MOVE_DURATION
             num_points = int(duration * node.stream_hz)
             for i in range(1, num_points + 1):
                 if node.robot_stream_state is False or not rclpy.ok():
@@ -319,7 +353,7 @@ def main(args=None):
 
             # Zero Pose Hold
             node.get_logger().info(f' Cycle {cycle} - Step 4: Holding Zero Pose (1.0s)')
-            duration = 1.0
+            duration = HOLD_DURATION
             num_points = int(duration * node.stream_hz)
             for i in range(1, num_points + 1):
                 if node.robot_stream_state is False or not rclpy.ok():
@@ -327,7 +361,7 @@ def main(args=None):
                 node.send_joint_stream(node.zero_torso, node.zero_right, node.zero_left, node.zero_head, dt)
                 node.spin_sleep(dt)
 
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, ExternalShutdownException):
         node.get_logger().info('KeyboardInterrupt received. Shutting down...')
     finally:
         # Stop background thread
@@ -337,7 +371,8 @@ def main(args=None):
             node.get_logger().info('Cleaning up: Deactivating stream control...')
             node.toggle_stream(False)
         node.destroy_node()
-        rclpy.shutdown()
+        if rclpy.ok():
+            rclpy.shutdown()
 
 if __name__ == '__main__':
     main()

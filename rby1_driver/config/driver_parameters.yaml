@@ -6,27 +6,31 @@
 
 
     # drive parameters
-    get_state_period: 0.01 # seconds
-    minimum_time: 2.0 # seconds
-    stream_hz: 30.0
+    stream_command_hz: 30.0   # Hz, how often cmd_vel is expected; each cmd_vel is carried out for 1.1 of that period
 
-    angular_velocity_limit: 4.712388 # 3.141592 * 1.5
-    linear_velocity_limit: 1.5
-    acceleration_limit: 1.0
-    stop_orientation_tracking_error: 1e-5
-    stop_position_tracking_error: 1e-5
+    # Robot parameters written to the robot at connect (SDK SetParameter; the robot keeps
+    # them in its database). These are the robot's own defaults (read from the simulator
+    # 2026-10-26); the SDK's examples use cutoff 5 and scaling 0.6 to 1.0.
+    joint_position_command_cutoff_frequency: 15.0   # Hz, joint position command filter
+    cartesian_command_cutoff_frequency: 15.0        # Hz, Cartesian command filter
+    default_acceleration_limit_scaling: 1.0         # 0 to 1, every command's acceleration limits
+    default_velocity_limit_scaling: 1.0             # 0 to 1, every command's velocity limits
+    default_linear_acceleration_limit: 20.0         # m/s^2, Cartesian commands
+    default_angular_acceleration_limit: 10.0        # rad/s^2, Cartesian commands
 
     # SE2/Mobile base parameters for smooth streaming control
     se2_minimum_time: 1.0 # seconds
     se2_linear_acceleration_limit: 0.5
     se2_angular_acceleration_limit: 0.5
 
-
-    # additional options
-    fault_reset_trigger: false 
     
     # Collision options
     collision_threshold: 0.02 # meter
+
+    # Control manager: true enables it in unlimited mode (joint limits are not checked at
+    # enable, so a joint that stopped just outside its limit can be moved back)
+    control_manager_unlimited: false
+
 
     # Status publish triggers
     publish_battery_state: true

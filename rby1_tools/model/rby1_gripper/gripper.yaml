@@ -1,0 +1,73 @@
+# The RB-Y1 gripper as modules in the MoveIt planning scene, one body and two fingers per
+# hand on the tool frames (ee_right / ee_left). rby1_tools' gripper.launch.py scene:=true
+# loads it (with the mount of config/gripper/gripper_mount.yaml applied); by hand:
+#   ros2 launch rby1_moveit_objects objects.launch.py config:=rby1_tools/model/rby1_gripper/gripper.yaml
+#
+# The robot model of an RB-Y1 up to v1.2 ends at the tool frames: MoveIt and cuMotion know
+# the gripper only from here. Without these modules both plan as if the hand ended at the
+# tool frame. (An RB-Y1 v1.3 carries the gripper in its URDF: this file is refused there.)
+# The target executor of rby1_isaac_ros turns each part into spheres on the hand; a part
+# named in its `free_objects` is left out (MoveIt is told to let it touch, too):
+#   ros2 param set /rby1_target_executor free_objects "['gripper_*finger*']"   # the fingers
+#   ros2 param set /rby1_target_executor free_objects "['']"                   # nothing
+# Another tool: copy this file, replace the parts (format: rby1_moveit_objects/config/objects.yaml).
+#
+# The parts are the gripper's own meshes (meshes/, the same files gripper.urdf.xacro shows
+# in RViz) at the poses the URDF has for them. Each finger follows its joint on
+# /rby1/<hand>_gripper/state (sensor_msgs/JointState; each finger's opening in m, 0 closed
+# .. 0.05 open), as the virtual gripper or the gripper driver publishes it: its xyz below
+# is where it is closed, and it moves along `axis` by the opening. Until a state comes the
+# fingers stand fully open (`initial`), their widest. The parts of one gripper may touch
+# each other and the wrist (touch_links).
+objects:
+  - name: gripper_right_body
+    frame: ee_right
+    attach: true
+    type: mesh
+    mesh: meshes/EE_BODY.dae
+    touch_links: [ee_right, link_right_arm_6, link_right_arm_5, gripper_right_finger_1, gripper_right_finger_2]
+
+  - name: gripper_right_finger_1
+    frame: ee_right
+    attach: true
+    xyz: [0.003, 0.0, -0.075]
+    type: mesh
+    mesh: meshes/EE_FINGER.dae
+    follows: {topic: /rby1/right_gripper/state, joint: gripper_finger_r1, axis: [1.0, 0.0, 0.0], initial: 0.05}
+    touch_links: [ee_right, link_right_arm_6, link_right_arm_5, gripper_right_body, gripper_right_finger_2]
+
+  - name: gripper_right_finger_2
+    frame: ee_right
+    attach: true
+    xyz: [-0.003, 0.0, -0.075]
+    rpy: [0.0, 0.0, 3.14159265]
+    type: mesh
+    mesh: meshes/EE_FINGER.dae
+    follows: {topic: /rby1/right_gripper/state, joint: gripper_finger_r2, axis: [-1.0, 0.0, 0.0], initial: 0.05}
+    touch_links: [ee_right, link_right_arm_6, link_right_arm_5, gripper_right_body, gripper_right_finger_1]
+
+  - name: gripper_left_body
+    frame: ee_left
+    attach: true
+    type: mesh
+    mesh: meshes/EE_BODY.dae
+    touch_links: [ee_left, link_left_arm_6, link_left_arm_5, gripper_left_finger_1, gripper_left_finger_2]
+
+  - name: gripper_left_finger_1
+    frame: ee_left
+    attach: true
+    xyz: [0.003, 0.0, -0.075]
+    type: mesh
+    mesh: meshes/EE_FINGER.dae
+    follows: {topic: /rby1/left_gripper/state, joint: gripper_finger_l1, axis: [1.0, 0.0, 0.0], initial: 0.05}
+    touch_links: [ee_left, link_left_arm_6, link_left_arm_5, gripper_left_body, gripper_left_finger_2]
+
+  - name: gripper_left_finger_2
+    frame: ee_left
+    attach: true
+    xyz: [-0.003, 0.0, -0.075]
+    rpy: [0.0, 0.0, 3.14159265]
+    type: mesh
+    mesh: meshes/EE_FINGER.dae
+    follows: {topic: /rby1/left_gripper/state, joint: gripper_finger_l2, axis: [-1.0, 0.0, 0.0], initial: 0.05}
+    touch_links: [ee_left, link_left_arm_6, link_left_arm_5, gripper_left_body, gripper_left_finger_1]

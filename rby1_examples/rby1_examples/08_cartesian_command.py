@@ -15,7 +15,7 @@ Sequence:
   5. Wait for the action to complete and report the result.
 
 Run:
-  ros2 run rby1_examples cartesian_command
+  ros2 run rby1_examples 08_cartesian_command
 
 Actions used:
   - robot_joint      (Rby1JointCommand)
@@ -27,7 +27,7 @@ Services used:
   - get_cartesian_pose   (GetCartesianPose)
 
 Topics subscribed:
-  - joint_states/robot_state  (RobotState)
+  - robot_state  (rby1_msgs/RobotState)
 """
 import time
 import rclpy
@@ -38,6 +38,20 @@ from rby1_msgs.msg import CartesianCommand, JointCommand, RobotState
 from rby1_msgs.srv import StateOnOff, GetCartesianPose
 from std_msgs.msg import Int32
 from geometry_msgs.msg import Transform, Vector3, Quaternion
+
+# Values to change: edit these to adjust the example.
+# Ready pose, sent first as a joint command
+READY_TORSO = [0.0] * 6                                  # rad, torso_0 .. torso_5
+READY_RIGHT_ARM = [0.0, -0.5, 0.0, -1.0, 0.0, 0.0, 0.0]  # rad
+READY_LEFT_ARM = [0.0, 0.5, 0.0, -1.0, 0.0, 0.0, 0.0]    # rad
+READY_HEAD = [0.0] * 2                                   # rad
+READY_MINIMUM_TIME = 4.0                                 # s, the move takes at least this long
+# Cartesian command, sent second
+Z_OFFSET = 0.05                             # m, each hand moves up by this from where it is
+MINIMUM_TIME = 5.0                          # s, for both arms
+TRANSLATION_WEIGHT = [500.0, 500.0, 500.0]  # left arm (impedance), x y z
+ROTATION_WEIGHT = [50.0, 50.0, 50.0]        # left arm (impedance)
+CONTROL_HOLD_TIME = 5.0                     # s, left arm holds the pose this long after arriving
 
 class CartesianCommandExample(Node):
     def __init__(self):
@@ -105,14 +119,14 @@ class CartesianCommandExample(Node):
         for part in ['torso', 'right_arm', 'left_arm', 'head']:
             cmd = JointCommand()
             if part == 'torso':
-                cmd.position = [0.0] * 6
+                cmd.position = READY_TORSO
             elif part == 'head':
-                cmd.position = [0.0] * 2
+                cmd.position = READY_HEAD
             elif part == 'right_arm':
-                cmd.position = [0.0, -0.5, 0.0, -1.0, 0.0, 0.0, 0.0]
+                cmd.position = READY_RIGHT_ARM
             elif part == 'left_arm':
-                cmd.position = [0.0, 0.5, 0.0, -1.0, 0.0, 0.0, 0.0]
-            cmd.minimum_time = 4.0
+                cmd.position = READY_LEFT_ARM
+            cmd.minimum_time = READY_MINIMUM_TIME
             setattr(goal_msg, part, cmd)
 
         self._zero_pose_client.wait_for_server()
@@ -162,8 +176,8 @@ class CartesianCommandExample(Node):
         cmd_right.ref_link = "link_torso_5"
         cmd_right.target_link = "link_right_arm_6"
         cmd_right.transform = right_transform
-        cmd_right.transform.translation.z += 0.05
-        cmd_right.minimum_time = 5.0
+        cmd_right.transform.translation.z += Z_OFFSET
+        cmd_right.minimum_time = MINIMUM_TIME
         goal_msg.right_arm = cmd_right
 
         # Left Arm (z + 5cm) - Cartesian Impedance Control
@@ -172,11 +186,11 @@ class CartesianCommandExample(Node):
         cmd_left.target_link = "link_left_arm_6"
         cmd_left.use_impedance = True
         cmd_left.transform = left_transform
-        cmd_left.transform.translation.z += 0.05
-        cmd_left.translation_weight = [500.0, 500.0, 500.0]
-        cmd_left.rotation_weight = [50.0, 50.0, 50.0]
-        cmd_left.control_hold_time = 5.0
-        cmd_left.minimum_time = 5.0
+        cmd_left.transform.translation.z += Z_OFFSET
+        cmd_left.translation_weight = TRANSLATION_WEIGHT
+        cmd_left.rotation_weight = ROTATION_WEIGHT
+        cmd_left.control_hold_time = CONTROL_HOLD_TIME
+        cmd_left.minimum_time = MINIMUM_TIME
         goal_msg.left_arm = cmd_left
 
         self._action_client.wait_for_server()

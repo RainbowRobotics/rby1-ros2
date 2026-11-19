@@ -27,14 +27,6 @@ controller_manager:
       type: joint_trajectory_controller/JointTrajectoryController
 
 
-    gripper_r_controller:
-      type: position_controllers/GripperActionController
-
-
-    gripper_l_controller:
-      type: position_controllers/GripperActionController
-
-
     joint_state_broadcaster:
       type: joint_state_broadcaster/JointStateBroadcaster
 
@@ -138,9 +130,3 @@ body_controller:
       - position
     state_interfaces:
       - position
-gripper_r_controller:
-  ros__parameters:
-    joint: gripper_finger_r1_joint
-gripper_l_controller:
-  ros__parameters:
-    joint: gripper_finger_l1_joint

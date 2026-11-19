@@ -1,2 +1,5 @@
 __pycache__/
 *.pyc
+rby1_navigation/
+# local prototype, not pushed: MCP server over this repository
+rby1_mcp/

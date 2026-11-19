@@ -17,7 +17,7 @@ Sequence:
   4. Wait for the action to complete and report the result.
 
 Run:
-  ros2 run rby1_examples multi_controls
+  ros2 run rby1_examples 09_multi_controls
 
 Actions used:
   - robot_joint      (Rby1JointCommand)
@@ -28,7 +28,7 @@ Services used:
   - robot_servo  (StateOnOff)
 
 Topics subscribed:
-  - joint_states/robot_state  (RobotState)
+  - robot_state  (rby1_msgs/RobotState)
 """
 import time
 import rclpy
@@ -38,6 +38,20 @@ from rby1_msgs.action import Rby1JointCommand, Rby1CartesianCommand
 from rby1_msgs.msg import JointCommand, CartesianCommand, RobotState
 from rby1_msgs.srv import StateOnOff
 from geometry_msgs.msg import Transform
+
+# Values to change: edit these to adjust the example.
+# Ready pose, sent first as a joint command
+READY_TORSO = [0.0] * 6                                  # rad, torso_0 .. torso_5
+READY_RIGHT_ARM = [0.0, -0.5, 0.0, -1.0, 0.0, 0.0, 0.0]  # rad
+READY_LEFT_ARM = [0.0, 0.5, 0.0, -1.0, 0.0, 0.0, 0.0]    # rad
+READY_HEAD = [0.0] * 2                                   # rad
+READY_MINIMUM_TIME = 4.0                                 # s, the move takes at least this long
+# Joint goal (torso, left arm) and Cartesian goal (right arm), sent together
+TARGET_TORSO = [0.0,0.2,-0.4,0.2,0.0,0.0]                # rad
+TARGET_LEFT_ARM = [0.0, 0.5, 0.0, -1.5, 0.0, 0.0, 0.0]   # rad
+RIGHT_HAND_XYZ = [0.3, -0.3, -0.2]                       # m, link_right_arm_6 in link_torso_5
+RIGHT_HAND_QUATERNION = [0.0, 0.0, 0.0, 1.0]             # x, y, z, w
+MINIMUM_TIME = 5.0                                       # s, for both goals
 
 class MultiControlsExample(Node):
     def __init__(self):
@@ -98,14 +112,14 @@ class MultiControlsExample(Node):
         for part in ['torso', 'right_arm', 'left_arm', 'head']:
             cmd = JointCommand()
             if part == 'torso':
-                cmd.position = [0.0] * 6
+                cmd.position = READY_TORSO
             elif part == 'head':
-                cmd.position = [0.0] * 2
+                cmd.position = READY_HEAD
             elif part == 'right_arm':
-                cmd.position = [0.0, -0.5, 0.0, -1.0, 0.0, 0.0, 0.0]
+                cmd.position = READY_RIGHT_ARM
             elif part == 'left_arm':
-                cmd.position = [0.0, 0.5, 0.0, -1.0, 0.0, 0.0, 0.0]
-            cmd.minimum_time = 4.0
+                cmd.position = READY_LEFT_ARM
+            cmd.minimum_time = READY_MINIMUM_TIME
             setattr(goal_msg, part, cmd)
 
         self.joint_client.wait_for_server()
@@ -178,21 +192,21 @@ def main(args=None):
 
     time.sleep(1.0)
 
-    min_time = 5.0
+    min_time = MINIMUM_TIME
 
     # 1. Prepare Joint Goal (Torso: Joint Position, Left Arm: Joint Position)
-    torso_pos = [0.0,0.2,-0.4,0.2,0.0,0.0]
-    left_arm_pos = [0.0, 0.5, 0.0, -1.5, 0.0, 0.0, 0.0]
+    torso_pos = TARGET_TORSO
+    left_arm_pos = TARGET_LEFT_ARM
 
     # 2. Prepare Cartesian Goal (Right Arm: Cartesian position)
     right_transform = Transform()
-    right_transform.translation.x = 0.3
-    right_transform.translation.y = -0.3
-    right_transform.translation.z = -0.2
-    right_transform.rotation.x = 0.0
-    right_transform.rotation.y = 0.0
-    right_transform.rotation.z = 0.0
-    right_transform.rotation.w = 1.0
+    right_transform.translation.x = RIGHT_HAND_XYZ[0]
+    right_transform.translation.y = RIGHT_HAND_XYZ[1]
+    right_transform.translation.z = RIGHT_HAND_XYZ[2]
+    right_transform.rotation.x = RIGHT_HAND_QUATERNION[0]
+    right_transform.rotation.y = RIGHT_HAND_QUATERNION[1]
+    right_transform.rotation.z = RIGHT_HAND_QUATERNION[2]
+    right_transform.rotation.w = RIGHT_HAND_QUATERNION[3]
 
     action_client.get_logger().info('Moving all parts concurrently (Torso & Left Arm: Joint, Right Arm: Cartesian)...')
     
